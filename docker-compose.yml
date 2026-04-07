@@ -20,6 +20,8 @@ services:
     volumes:
       # Mount videos directory (optional - Fallback für lokale Videos)
       - ./videos:/app/videos:ro
+      # Mount sponsors directory for sponsor logos
+      - ./public/sponsors:/app/public/sponsors:ro
     networks:
       - wartescreen-network
     healthcheck:

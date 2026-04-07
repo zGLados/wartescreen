@@ -436,17 +436,26 @@
         // Sponsor-Logos laden und anzeigen
         function initSponsors() {
             const sponsorBar = document.getElementById('sponsorBar');
+            console.log('initSponsors called - SPONSOR_FILES:', SPONSOR_FILES);
             sponsorBar.innerHTML = ''; // Clear existing
             
             if (SPONSOR_FILES && SPONSOR_FILES.length > 0) {
+                console.log('Loading', SPONSOR_FILES.length, 'sponsor logos');
                 SPONSOR_FILES.forEach(file => {
                     const img = document.createElement('img');
                     img.src = `/sponsors/${file}`;
                     img.className = 'sponsor-logo';
                     img.alt = 'Sponsor';
-                    img.onerror = () => img.style.display = 'none'; // Hide if load fails
+                    img.onload = () => console.log('Sponsor logo loaded:', file);
+                    img.onerror = () => {
+                        console.error('Failed to load sponsor logo:', file);
+                        img.style.display = 'none';
+                    };
                     sponsorBar.appendChild(img);
+                    console.log('Added sponsor logo to DOM:', file);
                 });
+            } else {
+                console.log('No sponsor files found');
             }
         }
 
