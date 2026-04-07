@@ -385,8 +385,18 @@
             videoElement.style.display = 'block';
             
             if (videoElement && VIDEO_FILES.length > 0) {
+                // Zufälliges Start-Video
+                currentVideoIndex = Math.floor(Math.random() * VIDEO_FILES.length);
+                
                 videoElement.onended = () => {
-                    currentVideoIndex = (currentVideoIndex + 1) % VIDEO_FILES.length;
+                    // Wähle ein anderes zufälliges Video (nicht dasselbe)
+                    if (VIDEO_FILES.length > 1) {
+                        let newIndex;
+                        do {
+                            newIndex = Math.floor(Math.random() * VIDEO_FILES.length);
+                        } while (newIndex === currentVideoIndex);
+                        currentVideoIndex = newIndex;
+                    }
                     playNextLocalVideo();
                 };
                 playNextLocalVideo();
