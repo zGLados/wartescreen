@@ -22,6 +22,22 @@ function getVideoFiles() {
     }
 }
 
+// Funktion zum automatischen Scannen aller Sponsor-Bilder
+function getSponsorFiles() {
+    const sponsorsDir = path.join(__dirname, 'public', 'sponsors');
+    try {
+        if (!fs.existsSync(sponsorsDir)) {
+            console.warn('Sponsors directory not found');
+            return [];
+        }
+        const files = fs.readdirSync(sponsorsDir);
+        return files.filter(file => /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(file));
+    } catch (error) {
+        console.error('Error reading sponsors directory:', error);
+        return [];
+    }
+}
+
 // Middleware für JSON und statische Dateien
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -62,6 +78,7 @@ app.get('/api/config', (req, res) => {
     res.json({
         apiKey: process.env.FACEIT_API_KEY || '',
         videoFiles: getVideoFiles(),
+        sponsorFiles: getSponsorFiles(),
         showVeto: process.env.SHOW_VETO === 'true',
         refreshInterval: parseInt(process.env.REFRESH_INTERVAL) || 5000
     });
@@ -76,6 +93,7 @@ app.get('/api/config/:matchId', (req, res) => {
     res.json({
         apiKey: process.env.FACEIT_API_KEY || '',
         videoFiles: getVideoFiles(),
+        sponsorFiles: getSponsorFiles(),
         showVeto: showVeto,
         refreshInterval: parseInt(process.env.REFRESH_INTERVAL) || 5000
     });

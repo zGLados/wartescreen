@@ -9,6 +9,15 @@ package-lock.json
 # Videos (zu groß für Git - nutze YouTube)
 videos/
 
+# Sponsor-Logos (werden via FTP hochgeladen)
+public/sponsors/*.png
+public/sponsors/*.jpg
+public/sponsors/*.jpeg
+public/sponsors/*.gif
+public/sponsors/*.svg
+public/sponsors/*.webp
+!public/sponsors/README.md
+
 # Logs
 *.log
 npm-debug.log*

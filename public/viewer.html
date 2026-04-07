@@ -236,6 +236,53 @@
             opacity: 0.7;
             z-index: 100;
         }
+
+        /* Sponsor-Leiste */
+        .sponsor-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            justify-content: center;
+            padding: 15px 30px;
+            background: rgba(27, 39, 53, 0.85);
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            z-index: 50;
+            max-width: 90%;
+            overflow-x: auto;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .sponsor-bar::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .sponsor-bar::-webkit-scrollbar-thumb {
+            background: var(--accent-red);
+            border-radius: 2px;
+        }
+
+        .sponsor-logo {
+            height: 50px;
+            max-width: 150px;
+            object-fit: contain;
+            filter: brightness(0.95);
+            transition: all 0.3s ease;
+        }
+
+        .sponsor-logo:hover {
+            filter: brightness(1.1);
+            transform: scale(1.05);
+        }
+
+        /* Sponsor-Leiste verstecken wenn keine Sponsors */
+        .sponsor-bar:empty {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -273,12 +320,18 @@
         <!-- Maps werden per JS eingefügt -->
     </div>
 
+    <!-- Sponsor-Leiste -->
+    <div class="sponsor-bar" id="sponsorBar">
+        <!-- Sponsor-Logos werden per JS eingefügt -->
+    </div>
+
     <script>
         // Konfiguration vom Server laden
         let API_KEY = "";
         let SHOW_VETO = false;
         let REFRESH_INTERVAL = 5000;
         let VIDEO_FILES = [];
+        let SPONSOR_FILES = [];
 
         // Match ID aus der URL extrahieren
         const MATCH_ID = window.location.pathname.slice(1); // Entfernt den führenden "/"
@@ -293,6 +346,7 @@
                 SHOW_VETO = config.showVeto;
                 REFRESH_INTERVAL = config.refreshInterval;
                 VIDEO_FILES = config.videoFiles;
+                SPONSOR_FILES = config.sponsorFiles || [];
                 
                 // Nach dem Laden der Config initialisieren
                 initApp();
@@ -376,6 +430,23 @@
         function initBackgroundVideo() {
             if (VIDEO_FILES && VIDEO_FILES.length > 0) {
                 initLocalVideos();
+            }
+        }
+
+        // Sponsor-Logos laden und anzeigen
+        function initSponsors() {
+            const sponsorBar = document.getElementById('sponsorBar');
+            sponsorBar.innerHTML = ''; // Clear existing
+            
+            if (SPONSOR_FILES && SPONSOR_FILES.length > 0) {
+                SPONSOR_FILES.forEach(file => {
+                    const img = document.createElement('img');
+                    img.src = `/sponsors/${file}`;
+                    img.className = 'sponsor-logo';
+                    img.alt = 'Sponsor';
+                    img.onerror = () => img.style.display = 'none'; // Hide if load fails
+                    sponsorBar.appendChild(img);
+                });
             }
         }
 
@@ -633,6 +704,7 @@
             fetchMatchData();
             setInterval(fetchMatchData, REFRESH_INTERVAL);
             initBackgroundVideo();
+            initSponsors();
         }
 
         // Config laden und App starten
