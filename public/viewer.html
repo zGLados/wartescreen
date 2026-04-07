@@ -248,13 +248,14 @@
             align-items: center;
             justify-content: center;
             padding: 15px 30px;
-            background: rgba(27, 39, 53, 0.85);
+            background: rgba(27, 39, 53, 0.95);
             border-radius: 8px;
             backdrop-filter: blur(10px);
-            z-index: 50;
+            z-index: 999;
             max-width: 90%;
             overflow-x: auto;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .sponsor-bar::-webkit-scrollbar {
@@ -437,6 +438,8 @@
         function initSponsors() {
             const sponsorBar = document.getElementById('sponsorBar');
             console.log('initSponsors called - SPONSOR_FILES:', SPONSOR_FILES);
+            console.log('sponsorBar element:', sponsorBar);
+            console.log('sponsorBar computed style:', window.getComputedStyle(sponsorBar));
             sponsorBar.innerHTML = ''; // Clear existing
             
             if (SPONSOR_FILES && SPONSOR_FILES.length > 0) {
@@ -446,7 +449,9 @@
                     img.src = `/sponsors/${file}`;
                     img.className = 'sponsor-logo';
                     img.alt = 'Sponsor';
-                    img.onload = () => console.log('Sponsor logo loaded:', file);
+                    img.onload = () => {
+                        console.log('Sponsor logo loaded:', file, 'dimensions:', img.naturalWidth, 'x', img.naturalHeight);
+                    };
                     img.onerror = () => {
                         console.error('Failed to load sponsor logo:', file);
                         img.style.display = 'none';
@@ -454,6 +459,14 @@
                     sponsorBar.appendChild(img);
                     console.log('Added sponsor logo to DOM:', file);
                 });
+                
+                // Nach dem Hinzufügen noch mal die Bar checken
+                setTimeout(() => {
+                    console.log('After adding logos - sponsorBar.children:', sponsorBar.children.length);
+                    console.log('sponsorBar display:', window.getComputedStyle(sponsorBar).display);
+                    console.log('sponsorBar visibility:', window.getComputedStyle(sponsorBar).visibility);
+                    console.log('sponsorBar z-index:', window.getComputedStyle(sponsorBar).zIndex);
+                }, 100);
             } else {
                 console.log('No sponsor files found');
             }
