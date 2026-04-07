@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  faceit-wartescreen:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: faceit-wartescreen
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - FACEIT_API_KEY=${FACEIT_API_KEY}
+      - PORT=3000
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - SHOW_VETO=${SHOW_VETO:-false}
+      - REFRESH_INTERVAL=${REFRESH_INTERVAL:-5000}
+      - YOUTUBE_PLAYLIST_URL=${YOUTUBE_PLAYLIST_URL}
+    volumes:
+      # Mount videos directory (optional - Fallback für lokale Videos)
+      - ./videos:/app/videos:ro
+    networks:
+      - wartescreen-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+networks:
+  wartescreen-network:
+    driver: bridge

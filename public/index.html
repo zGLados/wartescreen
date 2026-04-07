@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FACEIT Wartescreen</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #0f1722 0%, #1b2735 100%);
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #c83737;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        p {
+            font-size: 1.1rem;
+            opacity: 0.8;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .links {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 40px;
+        }
+
+        .link-card {
+            background: rgba(27, 39, 53, 0.8);
+            padding: 25px;
+            border-radius: 8px;
+            border: 2px solid #333;
+            transition: all 0.3s;
+            text-decoration: none;
+            color: white;
+        }
+
+        .link-card:hover {
+            border-color: #c83737;
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(200, 55, 55, 0.3);
+        }
+
+        .link-card h2 {
+            margin: 0 0 10px 0;
+            color: #c83737;
+            font-size: 1.5rem;
+        }
+
+        .link-card p {
+            margin: 0;
+            font-size: 0.95rem;
+            opacity: 0.7;
+        }
+
+        .code {
+            background: #0f1722;
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 20px 0;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 FACEIT Wartescreen</h1>
+        <p>Professioneller Waiting Screen für FACEIT CS2 Matches mit Veto-Anzeige und Admin-Interface</p>
+
+        <div class="links">
+            <a href="/admin" class="link-card">
+                <h2>🔧 Admin Interface</h2>
+                <p>Timer manuell steuern und Match IDs verwalten</p>
+            </a>
+
+            <div class="link-card" style="cursor: default;">
+                <h2>📺 Viewer</h2>
+                <p>Öffne eine Match-spezifische URL:</p>
+                <div class="code">
+                    /{MATCH_ID}
+                </div>
+                <p style="font-size: 0.85rem; margin-top: 15px;">
+                    Beispiel: /1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6
+                </p>
+            </div>
+        </div>
+
+        <p style="margin-top: 50px; font-size: 0.9rem; opacity: 0.5;">
+            Powered by FACEIT API
+        </p>
+    </div>
+</body>
+</html>

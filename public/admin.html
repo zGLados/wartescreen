@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Interface - Timer Control</title>
+    <style>
+        :root {
+            --bg-color: #0f1722;
+            --card-bg: #1b2735;
+            --accent-blue: #122448;
+            --accent-red: #c83737;
+            --text-color: #ffffff;
+            --success-green: #2ecc71;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--accent-red);
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #aaa;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px;
+            background: #0f1722;
+            border: 2px solid #333;
+            border-radius: 4px;
+            color: var(--text-color);
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent-red);
+        }
+
+        .quick-times {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .quick-time-btn {
+            padding: 8px 16px;
+            background: var(--accent-blue);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .quick-time-btn:hover {
+            background: var(--accent-red);
+            transform: translateY(-2px);
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #a82828;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(200, 55, 55, 0.4);
+        }
+
+        .btn-success {
+            background: var(--success-green);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #27ae60;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .status-message {
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 15px;
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .status-success {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid var(--success-green);
+            color: var(--success-green);
+        }
+
+        .status-error {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            color: #e74c3c;
+        }
+
+        .info-box {
+            background: rgba(52, 152, 219, 0.1);
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+        }
+
+        .info-box h3 {
+            margin-top: 0;
+            color: #3498db;
+            font-size: 1rem;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .viewer-link {
+            background: #0f1722;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            word-break: break-all;
+            font-family: monospace;
+            color: var(--accent-red);
+        }
+
+        .copy-btn {
+            padding: 6px 12px;
+            background: #3498db;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-left: 10px;
+        }
+
+        .copy-btn:hover {
+            background: #2980b9;
+        }
+
+        .section-title {
+            color: var(--accent-red);
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #333;
+        }
+
+        .preview-timer {
+            font-size: 3rem;
+            font-family: monospace;
+            color: var(--accent-red);
+            text-align: center;
+            margin: 20px 0;
+            text-shadow: 0 0 20px rgba(200, 55, 55, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Admin Timer Control</h1>
+
+        <div class="card">
+            <h2 class="section-title">Match ID Eingabe</h2>
+            <div class="form-group">
+                <label for="matchId">Match ID (FACEIT Format)</label>
+                <input 
+                    type="text" 
+                    id="matchId" 
+                    placeholder="z.B. 1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6"
+                >
+            </div>
+
+            <div class="info-box" id="viewerLinkBox" style="display: none;">
+                <h3>📺 Viewer Link</h3>
+                <div class="viewer-link" id="viewerLink"></div>
+                <button class="copy-btn" onclick="copyViewerLink()">Link kopieren</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">Timer Einstellungen</h2>
+            
+            <div class="form-group">
+                <label for="timerDuration">Timer-Dauer (Sekunden)</label>
+                <input 
+                    type="number" 
+                    id="timerDuration" 
+                    placeholder="z.B. 60" 
+                    min="0"
+                    value="60"
+                >
+                <div class="quick-times">
+                    <button class="quick-time-btn" onclick="setQuickTime(30)">30s</button>
+                    <button class="quick-time-btn" onclick="setQuickTime(60)">1min</button>
+                    <button class="quick-time-btn" onclick="setQuickTime(120)">2min</button>
+                    <button class="quick-time-btn" onclick="setQuickTime(300)">5min</button>
+                    <button class="quick-time-btn" onclick="setQuickTime(600)">10min</button>
+                    <button class="quick-time-btn" onclick="setQuickTime(900)">15min</button>
+                </div>
+            </div>
+
+            <div class="preview-timer" id="previewTimer">01:00</div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="setTimer()">Timer starten</button>
+                <button class="btn btn-danger" onclick="clearTimer()">Timer zurücksetzen</button>
+            </div>
+
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">Anleitung</h2>
+            <div class="info-box">
+                <p><strong>1.</strong> Match ID eingeben (Format: 1-GUID)</p>
+                <p><strong>2.</strong> Timer-Dauer wählen oder manuell eingeben</p>
+                <p><strong>3.</strong> "Timer starten" klicken</p>
+                <p><strong>4.</strong> Viewer-Seite mit dem generierten Link öffnen</p>
+                <p style="margin-top: 15px;"><strong>🎯 Intelligente Timer-Logik:</strong></p>
+                <p style="margin-left: 20px;">• Wenn das Match <strong>in der Zukunft</strong> liegt: FACEIT Countdown läuft zuerst</p>
+                <p style="margin-left: 20px;">• Sobald das Match <strong>startet</strong>: Dein manueller Timer wird aktiv</p>
+                <p style="margin-left: 20px;">• Du kannst den Timer vorab setzen - er aktiviert sich automatisch!</p>
+                <p style="margin-top: 15px;"><strong>Hinweis:</strong> Der Timer wird live auf der Viewer-Seite aktualisiert.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const matchIdInput = document.getElementById('matchId');
+        const timerDurationInput = document.getElementById('timerDuration');
+        const statusMessage = document.getElementById('statusMessage');
+        const viewerLinkBox = document.getElementById('viewerLinkBox');
+        const viewerLink = document.getElementById('viewerLink');
+        const previewTimer = document.getElementById('previewTimer');
+
+        // Event Listeners
+        matchIdInput.addEventListener('input', updateViewerLink);
+        timerDurationInput.addEventListener('input', updatePreviewTimer);
+
+        function updateViewerLink() {
+            const matchId = matchIdInput.value.trim();
+            if (matchId && matchId.match(/^1-[a-f0-9-]+$/i)) {
+                viewerLinkBox.style.display = 'block';
+                const link = `${window.location.origin}/${matchId}`;
+                viewerLink.textContent = link;
+            } else {
+                viewerLinkBox.style.display = 'none';
+            }
+        }
+
+        function updatePreviewTimer() {
+            const duration = parseInt(timerDurationInput.value) || 0;
+            const hrs = Math.floor(duration / 3600);
+            const mins = Math.floor((duration % 3600) / 60);
+            const secs = duration % 60;
+            
+            let timeString = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            if (hrs > 0) {
+                timeString = `${hrs.toString().padStart(2, '0')}:${timeString}`;
+            }
+            previewTimer.textContent = timeString;
+        }
+
+        function setQuickTime(seconds) {
+            timerDurationInput.value = seconds;
+            updatePreviewTimer();
+        }
+
+        async function setTimer() {
+            const matchId = matchIdInput.value.trim();
+            const duration = parseInt(timerDurationInput.value);
+
+            if (!matchId) {
+                showStatus('Bitte Match ID eingeben!', 'error');
+                return;
+            }
+
+            if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
+                showStatus('Ungültige Match ID! Format: 1-GUID', 'error');
+                return;
+            }
+
+            if (!duration || duration <= 0) {
+                showStatus('Bitte gültige Timer-Dauer eingeben!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/timer/${matchId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ duration })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus(`✓ Timer erfolgreich auf ${duration}s gesetzt!`, 'success');
+                } else {
+                    showStatus('Fehler beim Setzen des Timers', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Verbindungsfehler: ' + error.message, 'error');
+            }
+        }
+
+        async function clearTimer() {
+            const matchId = matchIdInput.value.trim();
+
+            if (!matchId) {
+                showStatus('Bitte Match ID eingeben!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/timer/${matchId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus('✓ Timer zurückgesetzt! Viewer nutzt wieder FACEIT-Daten.', 'success');
+                } else {
+                    showStatus('Fehler beim Zurücksetzen', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Verbindungsfehler: ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message status-${type}`;
+            statusMessage.style.display = 'block';
+
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        function copyViewerLink() {
+            const link = viewerLink.textContent;
+            navigator.clipboard.writeText(link).then(() => {
+                showStatus('✓ Link in Zwischenablage kopiert!', 'success');
+            }).catch(err => {
+                showStatus('Fehler beim Kopieren', 'error');
+            });
+        }
+
+        // Initial preview
+        updatePreviewTimer();
+    </script>
+</body>
+</html>

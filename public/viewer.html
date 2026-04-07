@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS Veto Start Screen</title>
+
+    <style>
+        :root {
+            --bg-color: #0f1722;
+            --card-bg: #1b2735;
+            --accent-blue: #122448;
+            --accent-red: #c83737;
+            --ban-red: #ff4d4d;
+            --pick-green: #2ecc71;
+            --text-color: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #bg-video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: var(--bg-color);
+            overflow: hidden;
+        }
+
+        #bg-video-youtube,
+        #bg-video-local {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.3;
+        }
+        
+        #bg-video-youtube {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            min-width: 100%;
+            min-height: 100%;
+        }
+
+        #bg-video-youtube iframe {
+            width: 100vw;
+            height: 56.25vw; /* 16:9 Aspect Ratio */
+            min-height: 100vh;
+            min-width: 177.77vh; /* 16:9 Aspect Ratio */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        #timer {
+            font-size: 5rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: var(--accent-red);
+            text-shadow: 0 0 20px rgba(200, 55, 55, 0.5);
+        }
+
+        .team-container {
+            display: flex;
+            gap: 50px;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .team-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            min-width: 250px;
+        }
+
+        .team-logo {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+            filter: drop-shadow(0 0 15px rgba(255,255,255,0.3));
+        }
+
+        .team-home { color: var(--accent-blue); }
+        .team-away { color: var(--accent-red); }
+
+        .map-grid {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 1200px;
+        }
+
+        .map-card {
+            width: 150px;
+            height: 200px;
+            background-color: var(--card-bg);
+            border: 2px solid #333;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 10px;
+        }
+
+        .map-card img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.6;
+            z-index: 1;
+        }
+
+        .map-name {
+            z-index: 2;
+            font-weight: bold;
+            text-transform: uppercase;
+            background: rgba(0,0,0,0.7);
+            width: 100%;
+            text-align: center;
+            padding: 5px 0;
+        }
+
+        .map-card.banned {
+            border-color: var(--ban-red);
+            filter: grayscale(1) brightness(0.5);
+        } 
+        .map-card.banned::after {
+            content: "BANNED";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-20deg);
+            color: var(--ban-red);
+            font-size: 1.5rem;
+            border: 3px solid var(--ban-red);
+            padding: 5px;
+            z-index: 3;
+        }
+
+        .map-card.picked {
+            border-color: var(--pick-green);
+            transform: scale(1.03);
+            box-shadow: 0 0 18px var(--pick-green);
+        }
+
+        .status-label {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            z-index: 4;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(0,0,0,0.8);
+        }
+
+        .match-info-header {
+            text-align: center;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #league-name { 
+            background: var(--accent-red); 
+            color: white; 
+            padding: 5px 20px; 
+            font-size: 1.6rem; 
+            margin: 0; 
+            border-radius: 2px;
+        }
+        #match-format { 
+            color: var(--text-color); 
+            font-size: 1.05rem; 
+            opacity: 0.8; 
+            margin: 5px 0;
+            background: rgba(255,255,255,0.1); 
+            display: inline-block; 
+            padding: 2px 10px; 
+            border-radius: 4px;
+        }
+
+        #current-action {
+            margin: 15px 0 5px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.8;
+            font-weight: bold;
+        }
+
+        .timer-override-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: var(--accent-blue);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            opacity: 0.7;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="bg-video-container">
+        <!-- YouTube Player oder lokales Video -->
+        <div id="bg-video-youtube"></div>
+        <video id="bg-video-local" muted playsinline style="display: none;"></video>
+    </div>
+
+    <div id="timer-override-indicator" class="timer-override-indicator" style="display: none;">
+        MANUAL TIMER
+    </div>
+
+    <div class="header">
+        <div class="match-info-header">
+            <h2 id="league-name">League Loading...</h2>
+            <div id="match-format">BO?</div>
+        </div>
+        <div class="team-container">
+            <div class="team-info">
+                <img id="team1Logo" class="team-logo" src="" alt="">
+                <span class="team-home" id="team1Name">TEAM A</span>
+            </div>
+            <div style="align-self: center; font-size: 2rem; opacity: 0.5;">VS</div>
+            <div class="team-info">
+                <img id="team2Logo" class="team-logo" src="" alt="">
+                <span class="team-away" id="team2Name">TEAM B</span>
+            </div>
+        </div>
+        <p id="current-action">Waiting for start...</p>
+        <div id="timer">01:00</div>
+    </div>
+
+    <div class="map-grid" id="mapGrid">
+        <!-- Maps werden per JS eingefügt -->
+    </div>
+
+    <!-- YouTube IFrame Player API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <script>
+        // Konfiguration vom Server laden
+        let API_KEY = "";
+        let SHOW_VETO = false;
+        let REFRESH_INTERVAL = 5000;
+        let VIDEO_FILES = [];
+        let YOUTUBE_DATA = null;
+
+        // Match ID aus der URL extrahieren
+        const MATCH_ID = window.location.pathname.slice(1); // Entfernt den führenden "/"
+
+        // Config vom Server laden
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                API_KEY = config.apiKey;
+                SHOW_VETO = config.showVeto;
+                REFRESH_INTERVAL = config.refreshInterval;
+                VIDEO_FILES = config.videoFiles;
+                YOUTUBE_DATA = config.youtube;
+                
+                console.log('Config loaded:', { SHOW_VETO, REFRESH_INTERVAL, youtube: YOUTUBE_DATA, videoCount: VIDEO_FILES.length });
+                
+                // Nach dem Laden der Config initialisieren
+                initApp();
+            } catch (error) {
+                console.error('Failed to load config:', error);
+                // Fallback zu Standardwerten
+                initApp();
+            }
+        }
+
+        let timeLeft = 60;
+        let timerInterval;
+        let lastVetoCount = -1;
+        let hasTimerOverride = false;
+        
+        const grid = document.getElementById('mapGrid');
+        const timerDisplay = document.getElementById('timer');
+        const actionDisplay = document.getElementById('current-action');
+        const team1Display = document.getElementById('team1Name');
+        const team2Display = document.getElementById('team2Name');
+        const team1Logo = document.getElementById('team1Logo');
+        const team2Logo = document.getElementById('team2Logo');
+        const leagueDisplay = document.getElementById('league-name');
+        const formatDisplay = document.getElementById('match-format');
+        const mapGrid = document.getElementById('mapGrid');
+        const overrideIndicator = document.getElementById('timer-override-indicator');
+        let currentVideoIndex = 0;
+        let youtubePlayer = null;
+
+        function startTimer(duration = 60) {
+            clearInterval(timerInterval);
+            timeLeft = duration;
+            updateTimerDisplay();
+            timerInterval = setInterval(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    updateTimerDisplay();
+                } else if (timeLeft === 0) {
+                    clearInterval(timerInterval);
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const hrs = Math.floor(timeLeft / 3600);
+            const mins = Math.floor((timeLeft % 3600) / 60);
+            const secs = timeLeft % 60;
+            let timeString = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            if (hrs > 0) {
+                timeString = `${hrs.toString().padStart(2, '0')}:${timeString}`;
+            }
+            timerDisplay.textContent = timeString;
+        }
+
+        function initBackgroundVideo() {
+            if (YOUTUBE_DATA) {
+                // YouTube Player initialisieren
+                initYouTubePlayer();
+            } else if (VIDEO_FILES && VIDEO_FILES.length > 0) {
+                // Fallback zu lokalen Videos
+                initLocalVideos();
+            } else {
+                console.warn('Keine Videos konfiguriert (weder YouTube noch lokale Dateien)');
+            }
+        }
+
+        // YouTube Player initialisieren
+        function initYouTubePlayer() {
+            // Warten bis YouTube API geladen ist
+            if (typeof YT === 'undefined' || !YT.Player) {
+                setTimeout(initYouTubePlayer, 100);
+                return;
+            }
+
+            const playerVars = {
+                autoplay: 1,
+                mute: 1,
+                controls: 0,
+                showinfo: 0,
+                modestbranding: 1,
+                iv_load_policy: 3,
+                rel: 0,
+                loop: YOUTUBE_DATA.type === 'video' ? 1 : 0
+            };
+
+            if (YOUTUBE_DATA.type === 'playlist') {
+                playerVars.listType = 'playlist';
+                playerVars.list = YOUTUBE_DATA.id;
+                playerVars.loop = 1;
+            } else {
+                playerVars.videoId = YOUTUBE_DATA.id;
+                playerVars.playlist = YOUTUBE_DATA.id; // Für Loop bei einzelnem Video
+            }
+
+            youtubePlayer = new YT.Player('bg-video-youtube', {
+                width: '100%',
+                height: '100%',
+                playerVars: playerVars,
+                events: {
+                    onReady: (event) => {
+                        event.target.playVideo();
+                        console.log('YouTube Player ready');
+                    },
+                    onStateChange: (event) => {
+                        if (event.data === YT.PlayerState.ENDED && YOUTUBE_DATA.type === 'playlist') {
+                            event.target.playVideo(); // Restart playlist
+                        }
+                    },
+                    onError: (event) => {
+                        console.error('YouTube Player Error:', event.data);
+                    }
+                }
+            });
+        }
+
+        // Lokale Videos initialisieren (Fallback)
+        function initLocalVideos() {
+            const videoElement = document.getElementById('bg-video-local');
+            videoElement.style.display = 'block';
+            
+            if (videoElement && VIDEO_FILES.length > 0) {
+                videoElement.onended = () => {
+                    currentVideoIndex = (currentVideoIndex + 1) % VIDEO_FILES.length;
+                    playNextLocalVideo();
+                };
+                playNextLocalVideo();
+            }
+        }
+
+        function playNextLocalVideo() {
+            const videoElement = document.getElementById('bg-video-local');
+            if (!videoElement) return;
+            videoElement.src = `/videos/${VIDEO_FILES[currentVideoIndex]}`;
+            videoElement.play().catch(e => console.log("Video Autoplay failed:", e));
+        }
+
+        async function checkTimerOverride(scheduledAt) {
+            try {
+                const response = await fetch(`/api/timer/${MATCH_ID}`);
+                const data = await response.json();
+                
+                // Wenn Match in der Zukunft liegt, ignoriere Timer-Override
+                if (scheduledAt) {
+                    const now = Math.floor(Date.now() / 1000);
+                    const timeUntilMatch = scheduledAt - now;
+                    
+                    if (timeUntilMatch > 0) {
+                        // Match liegt in der Zukunft - verwende FACEIT Timer
+                        hasTimerOverride = false;
+                        overrideIndicator.style.display = 'none';
+                        console.log('Match in Zukunft - verwende FACEIT Countdown');
+                        return;
+                    }
+                }
+                
+                // Match hat bereits begonnen oder kein scheduled_at - verwende Override
+                if (data.hasOverride) {
+                    hasTimerOverride = true;
+                    overrideIndicator.style.display = 'block';
+                    
+                    // Timer auf Override-Wert setzen
+                    if (Math.abs(timeLeft - data.remaining) > 2) {
+                        startTimer(data.remaining);
+                    }
+                } else {
+                    hasTimerOverride = false;
+                    overrideIndicator.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Timer Override Check Error:', error);
+            }
+        }
+
+        async function fetchMatchData() {
+            if (!SHOW_VETO) {
+                await fetchAndRenderSimpleCountdown();
+                return;
+            }
+            
+            if (!MATCH_ID || !API_KEY) {
+                actionDisplay.textContent = "Fehler: Match ID oder API Key fehlt!";
+                return;
+            }
+
+            try {
+                const apiUrl = `https://open.faceit.com/data/v4/matches/${MATCH_ID}`;
+                const response = await fetch(apiUrl, {
+                    headers: { 'Authorization': `Bearer ${API_KEY}` }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log("FACEIT Data:", data);
+                
+                // Prüfe Timer-Override mit scheduled_at
+                await checkTimerOverride(data.scheduled_at);
+                
+                renderVeto(data);
+            } catch (error) {
+                console.error("FACEIT API Error:", error);
+                actionDisplay.textContent = `Verbindung zu FACEIT fehlgeschlagen: ${error.message}`;
+            }
+        }
+
+        async function fetchAndRenderSimpleCountdown() {
+            if (!MATCH_ID || !API_KEY) {
+                actionDisplay.textContent = "Fehler: Match ID oder API Key fehlt!";
+                return;
+            }
+            try {
+                const apiUrl = `https://open.faceit.com/data/v4/matches/${MATCH_ID}`;
+                const response = await fetch(apiUrl, { headers: { 'Authorization': `Bearer ${API_KEY}` } });
+                const data = await response.json();
+                
+                // Prüfe Timer-Override mit scheduled_at
+                await checkTimerOverride(data.scheduled_at);
+                
+                renderSimpleCountdown(data);
+            } catch (error) {
+                console.error("FACEIT API Error:", error);
+                actionDisplay.textContent = `Verbindung zu FACEIT fehlgeschlagen: ${error.message}`;
+            }
+        }
+
+        function renderVeto(data) {
+            if (!SHOW_VETO) return;
+
+            const teams = [data.teams.faction1, data.teams.faction2];
+            const tacamIndex = teams.findIndex(t => t.name.toLowerCase().includes("tacam"));
+            if (tacamIndex === 1) teams.reverse();
+            const [team1Data, team2Data] = teams;
+
+            team1Display.textContent = team1Data.name;
+            team2Display.textContent = team2Data.name;
+            team1Logo.src = team1Data.avatar || 'https://via.placeholder.com/100?text=' + encodeURIComponent(team1Data.name);
+            team2Logo.src = team2Data.avatar || 'https://via.placeholder.com/100?text=' + encodeURIComponent(team2Data.name);
+
+            leagueDisplay.textContent = data.competition_name || "FACEIT Match";
+            formatDisplay.textContent = `Best of ${data.best_of || '?'}`;
+
+            if (!data.voting || !data.voting.map) {
+                if (data.scheduled_at && !hasTimerOverride) {
+                    const now = Math.floor(Date.now() / 1000);
+                    const diff = data.scheduled_at - now;
+                    if (diff > 0) {
+                        if (Math.abs(timeLeft - diff) > 2) startTimer(diff);
+                        actionDisplay.textContent = "Match starts in";
+                    } else {
+                        actionDisplay.textContent = "Waiting for veto to start...";
+                    }
+                } else {
+                    actionDisplay.textContent = "Waiting for veto to start...";
+                }
+                return;
+            }
+
+            const voting = data.voting.map;
+            const entities = voting.entities;
+            const picks = voting.pick || [];
+            const bans = voting.drop || [];
+
+            const totalActions = picks.length + bans.length;
+            if (totalActions > lastVetoCount && !hasTimerOverride) {
+                lastVetoCount = totalActions;
+                startTimer();
+            }
+
+            grid.innerHTML = '';
+
+            entities.forEach(map => {
+                const isPicked = picks.includes(map.guid) || picks.includes(map.class_name);
+                const isBanned = bans.includes(map.guid) || bans.includes(map.class_name);
+                
+                const card = document.createElement('div');
+                card.className = 'map-card';
+                if (isPicked) card.classList.add('picked');
+                if (isBanned) card.classList.add('banned');
+
+                const mapImg = map.image_lg || `https://via.placeholder.com/150x200?text=${map.name}`;
+
+                card.innerHTML = `
+                    <img src="${mapImg}" alt="${map.name}">
+                    <div class="status-label">${getStatusLabel(map, data)}</div>
+                    <div class="map-name">${map.name}</div>
+                `;
+                grid.appendChild(card);
+            });
+
+            updateStatusText(data);
+        }
+
+        function renderSimpleCountdown(data) {
+            const teams = [data.teams.faction1, data.teams.faction2];
+            const tacamIndex = teams.findIndex(t => t.name.toLowerCase().includes("tacam"));
+            if (tacamIndex === 1) teams.reverse();
+            const [team1Data, team2Data] = teams;
+
+            team1Display.textContent = team1Data.name;
+            team2Display.textContent = team2Data.name;
+            team1Logo.src = team1Data.avatar || `https://via.placeholder.com/100?text=${encodeURIComponent(team1Data.name)}`;
+            team2Logo.src = team2Data.avatar || `https://via.placeholder.com/100?text=${encodeURIComponent(team2Data.name)}`;
+            
+            leagueDisplay.textContent = data.competition_name || "FACEIT Match";
+            formatDisplay.textContent = `Best of ${data.best_of || '?'}`;
+
+            mapGrid.style.display = 'none';
+            actionDisplay.textContent = "Stream starting soon...";
+
+            // Wenn kein Timer-Override aktiv ist, nutze die FACEIT-Zeit
+            if (!hasTimerOverride && data.scheduled_at) {
+                const now = Math.floor(Date.now() / 1000);
+                const diff = data.scheduled_at - now;
+                if (diff > 0) {
+                    startTimer(diff);
+                } else {
+                    clearInterval(timerInterval);
+                    timerDisplay.textContent = "00:00";
+                }
+            } else if (!hasTimerOverride) {
+                clearInterval(timerInterval);
+                timerDisplay.textContent = "00:00";
+            }
+        }
+
+        function getStatusLabel(map, data) {
+            if (data.voting.map.pick && (data.voting.map.pick.includes(map.guid) || data.voting.map.pick.includes(map.class_name))) return "PICKED";
+            if (data.voting.map.drop && (data.voting.map.drop.includes(map.guid) || data.voting.map.drop.includes(map.class_name))) return "BANNED";
+            return "";
+        }
+
+        function updateStatusText(data) {
+            if (data.status === 'FINISHED') {
+                actionDisplay.textContent = "Veto finished!";
+                if (!hasTimerOverride) clearInterval(timerInterval);
+            } else if (data.status === 'READY') {
+                actionDisplay.textContent = "Match is ready!";
+            } else {
+                actionDisplay.textContent = "Veto in progress...";
+            }
+        }
+
+        // App initialisieren (wird nach Config-Laden aufgerufen)
+        function initApp() {
+            fetchMatchData();
+            setInterval(fetchMatchData, REFRESH_INTERVAL);
+            initBackgroundVideo();
+        }
+
+        // Config laden und App starten
+        loadConfig();
+    </script>
+</body>
+</html>
