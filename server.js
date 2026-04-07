@@ -30,6 +30,9 @@ app.use('/videos', express.static(path.join(__dirname, 'videos')));
 // In-Memory-Speicher für Timer-Overrides (später kann das in eine DB ausgelagert werden)
 const timerOverrides = {};
 
+// In-Memory-Speicher für Veto-Overrides pro Match
+const vetoOverrides = {};
+
 // Middleware für Basic Authentication (nur für Admin-Seiten)
 function requireAuth(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -62,6 +65,52 @@ app.get('/api/config', (req, res) => {
         showVeto: process.env.SHOW_VETO === 'true',
         refreshInterval: parseInt(process.env.REFRESH_INTERVAL) || 5000
     });
+});
+
+// API-Endpunkt: Config mit Match-spezifischer Veto-Einstellung abrufen
+app.get('/api/config/:matchId', (req, res) => {
+    const { matchId } = req.params;
+    const baseShowVeto = process.env.SHOW_VETO === 'true';
+    const showVeto = vetoOverrides[matchId] !== undefined ? vetoOverrides[matchId] : baseShowVeto;
+    
+    res.json({
+        apiKey: process.env.FACEIT_API_KEY || '',
+        videoFiles: getVideoFiles(),
+        showVeto: showVeto,
+        refreshInterval: parseInt(process.env.REFRESH_INTERVAL) || 5000
+    });
+});
+
+// API-Endpunkt: Veto-Einstellung setzen (geschützt)
+app.post('/api/veto/:matchId', requireAuth, (req, res) => {
+    const { matchId } = req.params;
+    const { showVeto } = req.body;
+    
+    if (showVeto === undefined) {
+        return res.status(400).json({ error: 'Missing showVeto parameter' });
+    }
+    
+    vetoOverrides[matchId] = Boolean(showVeto);
+    res.json({ success: true, matchId, showVeto: vetoOverrides[matchId] });
+});
+
+// API-Endpunkt: Veto-Einstellung abrufen
+app.get('/api/veto/:matchId', (req, res) => {
+    const { matchId } = req.params;
+    const baseShowVeto = process.env.SHOW_VETO === 'true';
+    const showVeto = vetoOverrides[matchId] !== undefined ? vetoOverrides[matchId] : baseShowVeto;
+    
+    res.json({
+        showVeto: showVeto,
+        isOverride: vetoOverrides[matchId] !== undefined
+    });
+});
+
+// API-Endpunkt: Veto-Einstellung zurücksetzen (geschützt)
+app.delete('/api/veto/:matchId', requireAuth, (req, res) => {
+    const { matchId } = req.params;
+    delete vetoOverrides[matchId];
+    res.json({ success: true });
 });
 
 // API-Endpunkt: Timer-Override setzen (geschützt)

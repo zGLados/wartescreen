@@ -283,10 +283,10 @@
         // Match ID aus der URL extrahieren
         const MATCH_ID = window.location.pathname.slice(1); // Entfernt den führenden "/"
 
-        // Config vom Server laden
+        // Config vom Server laden (mit Match-spezifischen Einstellungen)
         async function loadConfig() {
             try {
-                const response = await fetch('/api/config');
+                const response = await fetch(`/api/config/${MATCH_ID}`);
                 const config = await response.json();
                 
                 API_KEY = config.apiKey;

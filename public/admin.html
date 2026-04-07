@@ -78,6 +78,22 @@
             border-color: var(--accent-red);
         }
 
+        input[type="checkbox"] {
+            width: auto;
+            height: 20px;
+            cursor: pointer;
+            accent-color: var(--accent-red);
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+            text-transform: none;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
         .quick-times {
             display: flex;
             gap: 10px;
@@ -291,6 +307,29 @@
         </div>
 
         <div class="card">
+            <h2 class="section-title">Pick/Ban Anzeige (Veto)</h2>
+            
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="showVetoCheckbox" onchange="updateVetoPreview()" style="margin-right: 10px;">
+                    Pick/Ban Veto anzeigen
+                </label>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
+                    Aktiviert = Map-Veto mit Pick/Ban wird angezeigt<br>
+                    Deaktiviert = Nur Teams, Timer und Match-Info
+                </p>
+            </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-success" onclick="saveVetoSetting()">Veto-Einstellung speichern</button>
+                <button class="btn btn-danger" onclick="resetVetoSetting()">Auf Standard zurücksetzen</button>
+            </div>
+
+            <div id="vetoStatusMessage" class="status-message"></div>
+        </div>
+
+        <div class="card">
             <h2 class="section-title">Anleitung</h2>
             <div class="info-box">
                 <p><strong>1.</strong> Match ID eingeben (Format: 1-GUID)</p>
@@ -313,9 +352,14 @@
         const viewerLinkBox = document.getElementById('viewerLinkBox');
         const viewerLink = document.getElementById('viewerLink');
         const previewTimer = document.getElementById('previewTimer');
+        const showVetoCheckbox = document.getElementById('showVetoCheckbox');
+        const vetoStatusMessage = document.getElementById('vetoStatusMessage');
 
         // Event Listeners
-        matchIdInput.addEventListener('input', updateViewerLink);
+        matchIdInput.addEventListener('input', () => {
+            updateViewerLink();
+            loadVetoSetting();
+        });
         timerDurationInput.addEventListener('input', updatePreviewTimer);
 
         function updateViewerLink() {
@@ -431,6 +475,100 @@
             }).catch(err => {
                 showStatus('Fehler beim Kopieren', 'error');
             });
+        }
+
+        // Veto-Einstellung laden
+        async function loadVetoSetting() {
+            const matchId = matchIdInput.value.trim();
+            if (!matchId || !matchId.match(/^1-[a-f0-9-]+$/i)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/veto/${matchId}`);
+                const data = await response.json();
+                showVetoCheckbox.checked = data.showVeto;
+            } catch (error) {
+                console.error('Error loading veto setting:', error);
+            }
+        }
+
+        function updateVetoPreview() {
+            // Optional: Preview-Logik hier hinzufügen
+        }
+
+        async function saveVetoSetting() {
+            const matchId = matchIdInput.value.trim();
+
+            if (!matchId) {
+                showVetoStatus('Bitte Match ID eingeben!', 'error');
+                return;
+            }
+
+            if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
+                showVetoStatus('Ungültige Match ID! Format: 1-GUID', 'error');
+                return;
+            }
+
+            const showVeto = showVetoCheckbox.checked;
+
+            try {
+                const response = await fetch(`/api/veto/${matchId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ showVeto })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showVetoStatus(`✓ Veto-Anzeige ${showVeto ? 'aktiviert' : 'deaktiviert'}!`, 'success');
+                } else {
+                    showVetoStatus('Fehler beim Speichern der Einstellung', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showVetoStatus('Verbindungsfehler: ' + error.message, 'error');
+            }
+        }
+
+        async function resetVetoSetting() {
+            const matchId = matchIdInput.value.trim();
+
+            if (!matchId) {
+                showVetoStatus('Bitte Match ID eingeben!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/veto/${matchId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showVetoStatus('✓ Veto-Einstellung zurückgesetzt! Standard aus .env wird verwendet.', 'success');
+                    await loadVetoSetting(); // Reload from default
+                } else {
+                    showVetoStatus('Fehler beim Zurücksetzen', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showVetoStatus('Verbindungsfehler: ' + error.message, 'error');
+            }
+        }
+
+        function showVetoStatus(message, type) {
+            vetoStatusMessage.textContent = message;
+            vetoStatusMessage.className = `status-message status-${type}`;
+            vetoStatusMessage.style.display = 'block';
+
+            setTimeout(() => {
+                vetoStatusMessage.style.display = 'none';
+            }, 5000);
         }
 
         // Initial preview
