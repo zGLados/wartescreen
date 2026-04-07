@@ -259,12 +259,15 @@
         <div class="card">
             <h2 class="section-title">Match ID Eingabe</h2>
             <div class="form-group">
-                <label for="matchId">Match ID (FACEIT Format)</label>
+                <label for="matchId">Match ID oder FACEIT Matchroom Link</label>
                 <input 
                     type="text" 
                     id="matchId" 
-                    placeholder="z.B. 1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6"
+                    placeholder="z.B. 1-3f08de52-... oder https://www.faceit.com/en/cs2/room/1-..."
                 >
+                <small style="color: #888; font-size: 0.85rem; margin-top: 5px; display: block;">
+                    Unterstützt: Match-ID (1-abc-...) oder kompletten FACEIT Matchroom Link
+                </small>
             </div>
 
             <div class="info-box" id="viewerLinkBox" style="display: none;">
@@ -362,8 +365,35 @@
         });
         timerDurationInput.addEventListener('input', updatePreviewTimer);
 
+        // Hilfsfunktion: Extrahiere Match-ID aus FACEIT Link oder direkter ID
+        function extractMatchId(input) {
+            const trimmed = input.trim();
+            
+            // Check if it's already a match ID (format: 1-abc-def-...)
+            if (trimmed.match(/^1-[a-f0-9-]+$/i)) {
+                return trimmed;
+            }
+            
+            // Try to extract from FACEIT URL
+            // Formats: 
+            // - https://www.faceit.com/en/cs2/room/1-abc-def-...
+            // - https://www.faceit.com/de/cs2/room/1-abc-def-...
+            // - https://faceit.com/en/cs2/room/1-abc-def-...
+            const urlPattern = /faceit\.com\/[a-z]{2}\/[^/]+\/room\/(1-[a-f0-9-]+)/i;
+            const match = trimmed.match(urlPattern);
+            
+            if (match && match[1]) {
+                return match[1];
+            }
+            
+            // Return original if no pattern matched
+            return trimmed;
+        }
+
         function updateViewerLink() {
-            const matchId = matchIdInput.value.trim();
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+            
             if (matchId && matchId.match(/^1-[a-f0-9-]+$/i)) {
                 viewerLinkBox.style.display = 'block';
                 const link = `${window.location.origin}/${matchId}`;
@@ -392,16 +422,17 @@
         }
 
         async function setTimer() {
-            const matchId = matchIdInput.value.trim();
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
             const duration = parseInt(timerDurationInput.value);
 
             if (!matchId) {
-                showStatus('Bitte Match ID eingeben!', 'error');
+                showStatus('Bitte Match ID oder FACEIT Link eingeben!', 'error');
                 return;
             }
 
             if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
-                showStatus('Ungültige Match ID! Format: 1-GUID', 'error');
+                showStatus('Ungültige Match ID! Format: 1-abc-... oder gültiger FACEIT Link', 'error');
                 return;
             }
 
@@ -433,10 +464,16 @@
         }
 
         async function clearTimer() {
-            const matchId = matchIdInput.value.trim();
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
 
             if (!matchId) {
-                showStatus('Bitte Match ID eingeben!', 'error');
+                showStatus('Bitte Match ID oder FACEIT Link eingeben!', 'error');
+                return;
+            }
+
+            if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
+                showStatus('Ungültige Match ID! Format: 1-abc-... oder gültiger FACEIT Link', 'error');
                 return;
             }
 
@@ -479,7 +516,9 @@
 
         // Veto-Einstellung laden
         async function loadVetoSetting() {
-            const matchId = matchIdInput.value.trim();
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+            
             if (!matchId || !matchId.match(/^1-[a-f0-9-]+$/i)) {
                 return;
             }
@@ -498,15 +537,16 @@
         }
 
         async function saveVetoSetting() {
-            const matchId = matchIdInput.value.trim();
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
 
             if (!matchId) {
-                showVetoStatus('Bitte Match ID eingeben!', 'error');
+                showVetoStatus('Bitte Match ID oder FACEIT Link eingeben!', 'error');
                 return;
             }
 
             if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
-                showVetoStatus('Ungültige Match ID! Format: 1-GUID', 'error');
+                showVetoStatus('Ungültige Match ID! Format: 1-abc-... oder gültiger FACEIT Link', 'error');
                 return;
             }
 
@@ -535,10 +575,16 @@
         }
 
         async function resetVetoSetting() {
-            const matchId = matchIdInput.value.trim();
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
 
             if (!matchId) {
-                showVetoStatus('Bitte Match ID eingeben!', 'error');
+                showVetoStatus('Bitte Match ID oder FACEIT Link eingeben!', 'error');
+                return;
+            }
+
+            if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
+                showVetoStatus('Ungültige Match ID! Format: 1-abc-... oder gültiger FACEIT Link', 'error');
                 return;
             }
 

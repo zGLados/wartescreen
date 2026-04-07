@@ -437,38 +437,20 @@
         // Sponsor-Logos laden und anzeigen
         function initSponsors() {
             const sponsorBar = document.getElementById('sponsorBar');
-            console.log('initSponsors called - SPONSOR_FILES:', SPONSOR_FILES);
-            console.log('sponsorBar element:', sponsorBar);
-            console.log('sponsorBar computed style:', window.getComputedStyle(sponsorBar));
             sponsorBar.innerHTML = ''; // Clear existing
             
             if (SPONSOR_FILES && SPONSOR_FILES.length > 0) {
-                console.log('Loading', SPONSOR_FILES.length, 'sponsor logos');
                 SPONSOR_FILES.forEach(file => {
                     const img = document.createElement('img');
                     img.src = `/sponsors/${file}`;
                     img.className = 'sponsor-logo';
                     img.alt = 'Sponsor';
-                    img.onload = () => {
-                        console.log('Sponsor logo loaded:', file, 'dimensions:', img.naturalWidth, 'x', img.naturalHeight);
-                    };
                     img.onerror = () => {
                         console.error('Failed to load sponsor logo:', file);
                         img.style.display = 'none';
                     };
                     sponsorBar.appendChild(img);
-                    console.log('Added sponsor logo to DOM:', file);
                 });
-                
-                // Nach dem Hinzufügen noch mal die Bar checken
-                setTimeout(() => {
-                    console.log('After adding logos - sponsorBar.children:', sponsorBar.children.length);
-                    console.log('sponsorBar display:', window.getComputedStyle(sponsorBar).display);
-                    console.log('sponsorBar visibility:', window.getComputedStyle(sponsorBar).visibility);
-                    console.log('sponsorBar z-index:', window.getComputedStyle(sponsorBar).zIndex);
-                }, 100);
-            } else {
-                console.log('No sponsor files found');
             }
         }
 
