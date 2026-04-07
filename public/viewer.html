@@ -41,7 +41,6 @@
             overflow: hidden;
         }
 
-        #bg-video-youtube,
         #bg-video-local {
             width: 100%;
             height: 100%;
@@ -274,20 +273,15 @@
         <!-- Maps werden per JS eingefügt -->
     </div>
 
-    <!-- YouTube IFrame Player API -->
-    <script src="https://www.youtube.com/iframe_api"></script>
-
     <script>
         // Konfiguration vom Server laden
         let API_KEY = "";
         let SHOW_VETO = false;
         let REFRESH_INTERVAL = 5000;
         let VIDEO_FILES = [];
-        let YOUTUBE_DATA = null;
 
         // Match ID aus der URL extrahieren
         const MATCH_ID = window.location.pathname.slice(1); // Entfernt den führenden "/"
-        console.log('Page loaded - MATCH_ID from URL:', MATCH_ID);
 
         // Config vom Server laden
         async function loadConfig() {
@@ -299,9 +293,6 @@
                 SHOW_VETO = config.showVeto;
                 REFRESH_INTERVAL = config.refreshInterval;
                 VIDEO_FILES = config.videoFiles;
-                YOUTUBE_DATA = config.youtube;
-                
-                console.log('Config loaded:', { SHOW_VETO, REFRESH_INTERVAL, youtube: YOUTUBE_DATA, videoCount: VIDEO_FILES.length });
                 
                 // Nach dem Laden der Config initialisieren
                 initApp();
@@ -383,71 +374,12 @@
         }
 
         function initBackgroundVideo() {
-            if (YOUTUBE_DATA) {
-                // YouTube Player initialisieren
-                initYouTubePlayer();
-            } else if (VIDEO_FILES && VIDEO_FILES.length > 0) {
-                // Fallback zu lokalen Videos
+            if (VIDEO_FILES && VIDEO_FILES.length > 0) {
                 initLocalVideos();
-            } else {
-                console.warn('Keine Videos konfiguriert (weder YouTube noch lokale Dateien)');
             }
         }
 
-        // YouTube Player initialisieren
-        function initYouTubePlayer() {
-            // Warten bis YouTube API geladen ist
-            if (typeof YT === 'undefined' || !YT.Player) {
-                setTimeout(initYouTubePlayer, 100);
-                return;
-            }
-
-            const playerVars = {
-                autoplay: 1,
-                mute: 1,
-                controls: 0,
-                showinfo: 0,
-                modestbranding: 1,
-                iv_load_policy: 3,
-                rel: 0,
-                loop: YOUTUBE_DATA.type === 'video' ? 1 : 0
-            };
-
-            if (YOUTUBE_DATA.type === 'playlist') {
-                playerVars.listType = 'playlist';
-                playerVars.list = YOUTUBE_DATA.id;
-                playerVars.loop = 1;
-            } else {
-                playerVars.videoId = YOUTUBE_DATA.id;
-                playerVars.playlist = YOUTUBE_DATA.id; // Für Loop bei einzelnem Video
-            }
-
-            youtubePlayer = new YT.Player('bg-video-youtube', {
-                width: '100%',
-                height: '100%',
-                playerVars: playerVars,
-                events: {
-                    onReady: (event) => {
-                        event.target.playVideo();
-                        console.log('YouTube Player ready');
-                    },
-                    onStateChange: (event) => {
-                        if (event.data === YT.PlayerState.ENDED && YOUTUBE_DATA.type === 'playlist') {
-                            event.target.playVideo(); // Restart playlist
-                        }
-                    },
-                    onError: (event) => {
-                        console.error('YouTube Player Error Code:', event.data);
-                        console.error('Error 150 = Video cannot be embedded (check playlist privacy settings)');
-                        // Verstecke Player bei Fehler
-                        const playerDiv = document.getElementById('bg-video-youtube');
-                        if (playerDiv) playerDiv.style.display = 'none';
-                    }
-                }
-            });
-        }
-
-        // Lokale Videos initialisieren (Fallback)
+        // Lokale Videos initialisieren
         function initLocalVideos() {
             const videoElement = document.getElementById('bg-video-local');
             videoElement.style.display = 'block';
@@ -482,7 +414,7 @@
                         // Match liegt in der Zukunft - verwende FACEIT Timer
                         hasTimerOverride = false;
                         overrideIndicator.style.display = 'none';
-                        console.log('Match in Zukunft - verwende FACEIT Countdown');
+
                         return;
                     }
                 }
@@ -506,10 +438,7 @@
         }
 
         async function fetchMatchData() {
-            console.log('fetchMatchData called - SHOW_VETO:', SHOW_VETO);
-            
             if (!SHOW_VETO) {
-                console.log('Calling fetchAndRenderSimpleCountdown...');
                 await fetchAndRenderSimpleCountdown();
                 return;
             }
@@ -531,7 +460,6 @@
                 }
 
                 const data = await response.json();
-                console.log("FACEIT Data:", data);
                 
                 // Prüfe Timer-Override mit scheduled_at
                 await checkTimerOverride(data.scheduled_at);
@@ -544,17 +472,12 @@
         }
 
         async function fetchAndRenderSimpleCountdown() {
-            console.log('fetchAndRenderSimpleCountdown - MATCH_ID:', MATCH_ID, 'API_KEY:', API_KEY ? 'Set' : 'Missing');
-            
             if (!MATCH_ID || !API_KEY) {
-                console.error('Missing MATCH_ID or API_KEY');
                 actionDisplay.textContent = "Fehler: Match ID oder API Key fehlt!";
                 return;
             }
             try {
                 const apiUrl = `https://open.faceit.com/data/v4/matches/${MATCH_ID}`;
-                console.log('Fetching from:', apiUrl);
-                
                 const response = await fetch(apiUrl, { headers: { 'Authorization': `Bearer ${API_KEY}` } });
                 
                 if (!response.ok) {
@@ -562,12 +485,10 @@
                 }
                 
                 const data = await response.json();
-                console.log('FACEIT Data received:', data);
                 
                 // Prüfe Timer-Override mit scheduled_at
                 await checkTimerOverride(data.scheduled_at);
                 
-                console.log('Calling renderSimpleCountdown...');
                 renderSimpleCountdown(data);
             } catch (error) {
                 console.error("FACEIT API Error:", error);
@@ -644,10 +565,7 @@
         }
 
         function renderSimpleCountdown(data) {
-            console.log('renderSimpleCountdown called with data:', data);
-            
             if (!data || !data.teams) {
-                console.error('Invalid data passed to renderSimpleCountdown');
                 return;
             }
             
@@ -656,7 +574,6 @@
             if (tacamIndex === 1) teams.reverse();
             const [team1Data, team2Data] = teams;
 
-            console.log('Setting team names:', team1Data.name, team2Data.name);
             team1Display.textContent = team1Data.name;
             team2Display.textContent = team2Data.name;
             team1Logo.src = team1Data.avatar || `https://via.placeholder.com/100?text=${encodeURIComponent(team1Data.name)}`;
@@ -664,8 +581,6 @@
             
             leagueDisplay.textContent = data.competition_name || "FACEIT Match";
             formatDisplay.textContent = `Best of ${data.best_of || '?'}`;
-            
-            console.log('Team rendering complete');
 
             mapGrid.style.display = 'none';
             actionDisplay.textContent = "Stream starting soon...";

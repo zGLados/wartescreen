@@ -22,31 +22,6 @@ function getVideoFiles() {
     }
 }
 
-// Funktion zum Extrahieren der YouTube Playlist/Video ID aus URL
-function getYouTubeId(url) {
-    if (!url) return null;
-    
-    // Playlist URL: https://www.youtube.com/playlist?list=PLxxxxxx
-    const playlistMatch = url.match(/[?&]list=([a-zA-Z0-9_-]+)/);
-    if (playlistMatch) {
-        return { type: 'playlist', id: playlistMatch[1] };
-    }
-    
-    // Video URL: https://www.youtube.com/watch?v=xxxxxx
-    const videoMatch = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
-    if (videoMatch) {
-        return { type: 'video', id: videoMatch[1] };
-    }
-    
-    // Kurz-URL: https://youtu.be/xxxxxx
-    const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
-    if (shortMatch) {
-        return { type: 'video', id: shortMatch[1] };
-    }
-    
-    return null;
-}
-
 // Middleware für JSON und statische Dateien
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -81,13 +56,9 @@ function requireAuth(req, res, next) {
 
 // API-Endpunkt: Config abrufen (für Client)
 app.get('/api/config', (req, res) => {
-    const youtubeUrl = process.env.YOUTUBE_PLAYLIST_URL;
-    const youtubeData = getYouTubeId(youtubeUrl);
-    
     res.json({
         apiKey: process.env.FACEIT_API_KEY || '',
-        videoFiles: youtubeData ? [] : getVideoFiles(), // Fallback zu lokalen Videos
-        youtube: youtubeData, // { type: 'playlist'|'video', id: 'xxx' } oder null
+        videoFiles: getVideoFiles(),
         showVeto: process.env.SHOW_VETO === 'true',
         refreshInterval: parseInt(process.env.REFRESH_INTERVAL) || 5000
     });
@@ -141,11 +112,6 @@ app.delete('/api/timer/:matchId', requireAuth, (req, res) => {
 // Admin-Interface (geschützt)
 app.get('/admin', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-// Debug-Seite (öffentlich für Troubleshooting)
-app.get('/debug', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'debug.html'));
 });
 
 // Route für Viewer-Seiten (Match ID als URL-Parameter)
