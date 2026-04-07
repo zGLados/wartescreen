@@ -143,6 +143,11 @@ app.get('/admin', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+// Debug-Seite (öffentlich für Troubleshooting)
+app.get('/debug', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'debug.html'));
+});
+
 // Route für Viewer-Seiten (Match ID als URL-Parameter)
 app.get('/:matchId', (req, res) => {
     const { matchId } = req.params;

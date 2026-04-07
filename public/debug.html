@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - FACEIT Wartescreen</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #0f1722;
+            color: #fff;
+            padding: 20px;
+        }
+        .section {
+            background: #1b2735;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .success { color: #2ecc71; }
+        .error { color: #e74c3c; }
+        .warning { color: #f39c12; }
+        pre {
+            background: #0f1722;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background: #c83737;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover { background: #a82828; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug - FACEIT Wartescreen</h1>
+
+    <div class="section">
+        <h2>1. Server Config Test</h2>
+        <button onclick="testConfig()">Config API testen</button>
+        <div id="configResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>2. FACEIT API Test</h2>
+        <input type="text" id="matchId" placeholder="Match ID" style="width: 400px; padding: 10px; background: #0f1722; color: white; border: 1px solid #333;">
+        <button onclick="testFaceitAPI()">FACEIT API testen</button>
+        <div id="faceitResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>3. YouTube Player Test</h2>
+        <button onclick="testYouTube()">YouTube API testen</button>
+        <div id="youtubeResult"></div>
+        <div id="youtube-test" style="width: 640px; height: 360px; margin-top: 20px;"></div>
+    </div>
+
+    <div class="section">
+        <h2>4. Browser Console Logs</h2>
+        <p>Öffne die Browser Console (F12) und schau nach Fehlern:</p>
+        <ul>
+            <li>CORS Fehler?</li>
+            <li>Network Errors?</li>
+            <li>JavaScript Errors?</li>
+        </ul>
+    </div>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+        let ytPlayer = null;
+
+        async function testConfig() {
+            const result = document.getElementById('configResult');
+            result.innerHTML = '<p class="warning">Lade Config...</p>';
+            
+            try {
+                const response = await fetch('/api/config');
+                const data = await response.json();
+                
+                let html = '<p class="success">✓ Config API funktioniert!</p><pre>';
+                html += JSON.stringify(data, null, 2);
+                html += '</pre>';
+                
+                if (data.youtube) {
+                    html += '<p class="success">✓ YouTube Config gefunden</p>';
+                } else {
+                    html += '<p class="error">✗ Keine YouTube Config</p>';
+                }
+                
+                if (data.apiKey) {
+                    html += '<p class="success">✓ FACEIT API Key gesetzt</p>';
+                } else {
+                    html += '<p class="error">✗ Kein FACEIT API Key</p>';
+                }
+                
+                result.innerHTML = html;
+            } catch (error) {
+                result.innerHTML = `<p class="error">✗ Config API Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testFaceitAPI() {
+            const result = document.getElementById('faceitResult');
+            const matchId = document.getElementById('matchId').value || '1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6';
+            
+            result.innerHTML = '<p class="warning">Lade FACEIT Daten...</p>';
+            
+            try {
+                // Hole erstmal den API Key
+                const configRes = await fetch('/api/config');
+                const config = await configRes.json();
+                const apiKey = config.apiKey;
+                
+                if (!apiKey) {
+                    result.innerHTML = '<p class="error">✗ Kein API Key in Config!</p>';
+                    return;
+                }
+                
+                const apiUrl = `https://open.faceit.com/data/v4/matches/${matchId}`;
+                const response = await fetch(apiUrl, {
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                let html = '<p class="success">✓ FACEIT API funktioniert!</p><pre>';
+                html += JSON.stringify(data, null, 2);
+                html += '</pre>';
+                
+                result.innerHTML = html;
+            } catch (error) {
+                result.innerHTML = `<p class="error">✗ FACEIT API Error: ${error.message}</p>`;
+                console.error('FACEIT Error:', error);
+            }
+        }
+
+        function testYouTube() {
+            const result = document.getElementById('youtubeResult');
+            result.innerHTML = '<p class="warning">Lade YouTube Player...</p>';
+            
+            fetch('/api/config')
+                .then(res => res.json())
+                .then(config => {
+                    if (!config.youtube) {
+                        result.innerHTML = '<p class="error">✗ Keine YouTube Config gefunden</p>';
+                        return;
+                    }
+                    
+                    result.innerHTML = `<p class="success">✓ YouTube Config: ${config.youtube.type} - ${config.youtube.id}</p>`;
+                    
+                    if (typeof YT !== 'undefined' && YT.Player) {
+                        initYouTubeTest(config.youtube);
+                    } else {
+                        setTimeout(() => initYouTubeTest(config.youtube), 1000);
+                    }
+                })
+                .catch(error => {
+                    result.innerHTML = `<p class="error">✗ Error: ${error.message}</p>`;
+                });
+        }
+
+        function initYouTubeTest(youtubeData) {
+            const result = document.getElementById('youtubeResult');
+            
+            try {
+                const playerVars = {
+                    autoplay: 1,
+                    mute: 1,
+                    controls: 1
+                };
+
+                if (youtubeData.type === 'playlist') {
+                    playerVars.listType = 'playlist';
+                    playerVars.list = youtubeData.id;
+                } else {
+                    playerVars.videoId = youtubeData.id;
+                }
+
+                ytPlayer = new YT.Player('youtube-test', {
+                    width: '640',
+                    height: '360',
+                    playerVars: playerVars,
+                    events: {
+                        onReady: () => {
+                            result.innerHTML += '<p class="success">✓ YouTube Player Ready!</p>';
+                        },
+                        onError: (event) => {
+                            result.innerHTML += `<p class="error">✗ YouTube Error Code: ${event.data}</p>`;
+                        }
+                    }
+                });
+            } catch (error) {
+                result.innerHTML += `<p class="error">✗ YouTube Player Error: ${error.message}</p>`;
+            }
+        }
+
+        // Auto-Test beim Laden
+        window.onload = () => testConfig();
+    </script>
+</body>
+</html>
