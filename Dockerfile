@@ -22,9 +22,7 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy application files
 COPY server.js ./
 COPY public ./public
-
-# Create videos directory (will be mounted as volume)
-RUN mkdir -p videos
+COPY videos ./videos
 
 # Create a non-root user
 RUN addgroup -g 1001 -S nodejs && \
