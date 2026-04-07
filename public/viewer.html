@@ -355,6 +355,36 @@
             timerDisplay.textContent = timeString;
         }
 
+        // Map Name zu Bild-URL Mapping (mit Fallbacks)
+        function getMapImage(mapName) {
+            const normalizedName = mapName.toLowerCase().replace(/\s+/g, '');
+            
+            // Map-Namen Mapping zu Dateinamen
+            const mapImages = {
+                'ancient': 'CS2_de_ancient.png',
+                'anubis': 'CS2_de_anubis.png',
+                'dust2': 'CS2_Dust_2_A_Site.jpg',
+                'dust 2': 'CS2_Dust_2_A_Site.jpg',
+                'inferno': 'CS2_de_inferno.png',
+                'mirage': 'CS2_de_mirage.png',
+                'nuke': 'CS2_de_nuke.png',
+                'vertigo': 'CS2_de_vertigo.png',
+                'overpass': 'CS2_de_overpass.png'
+            };
+            
+            const imageFile = mapImages[normalizedName];
+            
+            if (imageFile) {
+                return `/maps/${imageFile}`;
+            }
+            
+            return null;
+        }
+            
+            // Fallback: Versuche CS2 Community CDN
+            return `https://static.wikia.nocookie.net/cswikia/images/${mapName.replace(/\s+/g, '_')}_csgo.jpg`;
+        }
+
         function initBackgroundVideo() {
             if (YOUTUBE_DATA) {
                 // YouTube Player initialisieren
@@ -582,10 +612,11 @@
                 if (isPicked) card.classList.add('picked');
                 if (isBanned) card.classList.add('banned');
 
-                const mapImg = map.image_lg || `https://via.placeholder.com/150x200?text=${map.name}`;
+                // Priorisierung: 1. FACEIT image_lg, 2. Lokale Bilder, 3. Placeholder
+                const mapImg = map.image_lg || getMapImage(map.name) || `https://via.placeholder.com/150x200?text=${map.name}`;
 
                 card.innerHTML = `
-                    <img src="${mapImg}" alt="${map.name}">
+                    <img src="${mapImg}" alt="${map.name}" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x200?text=${map.name}';">
                     <div class="status-label">${getStatusLabel(map, data)}</div>
                     <div class="map-name">${map.name}</div>
                 `;
