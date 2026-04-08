@@ -22,18 +22,28 @@ function getVideoFiles() {
     }
 }
 
-// Funktion zum automatischen Scannen aller Sponsor-Bilder
-function getSponsorFiles() {
-    const sponsorsDir = path.join(__dirname, 'public', 'sponsors');
+// Funktion zum automatischen Scannen aller Partner-Bilder
+function getPartnerFiles() {
+    const partnersDir = path.join(__dirname, 'partners');
     try {
-        if (!fs.existsSync(sponsorsDir)) {
-            console.warn('Sponsors directory not found');
+        if (!fs.existsSync(partnersDir)) {
+            console.warn('Partners directory not found');
             return [];
         }
-        const files = fs.readdirSync(sponsorsDir);
-        return files.filter(file => /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(file));
+        const files = fs.readdirSync(partnersDir);
+        return files.filter(file => {
+            // Nur Bild-Dateien
+            if (!/\.(png|jpg|jpeg|gif|svg|webp)$/i.test(file)) {
+                return false;
+            }
+            // TacAM Fallback-Logo ausschließen
+            if (/TacAM[_-]?logo\.png$/i.test(file)) {
+                return false;
+            }
+            return true;
+        });
     } catch (error) {
-        console.error('Error reading sponsors directory:', error);
+        console.error('Error reading partners directory:', error);
         return [];
     }
 }
@@ -42,6 +52,7 @@ function getSponsorFiles() {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/videos', express.static(path.join(__dirname, 'videos')));
+app.use('/partners', express.static(path.join(__dirname, 'partners')));
 
 // In-Memory-Speicher für Timer-Overrides (später kann das in eine DB ausgelagert werden)
 const timerOverrides = {};
@@ -78,7 +89,7 @@ app.get('/api/config', (req, res) => {
     res.json({
         apiKey: process.env.FACEIT_API_KEY || '',
         videoFiles: getVideoFiles(),
-        sponsorFiles: getSponsorFiles(),
+        partnerFiles: getPartnerFiles(),
         showVeto: process.env.SHOW_VETO === 'true',
         refreshInterval: parseInt(process.env.REFRESH_INTERVAL) || 5000
     });
@@ -93,7 +104,7 @@ app.get('/api/config/:matchId', (req, res) => {
     res.json({
         apiKey: process.env.FACEIT_API_KEY || '',
         videoFiles: getVideoFiles(),
-        sponsorFiles: getSponsorFiles(),
+        partnerFiles: getPartnerFiles(),
         showVeto: showVeto,
         refreshInterval: parseInt(process.env.REFRESH_INTERVAL) || 5000
     });

@@ -10,13 +10,13 @@ package-lock.json
 videos/
 
 # Sponsor-Logos (werden via FTP hochgeladen)
-public/sponsors/*.png
-public/sponsors/*.jpg
-public/sponsors/*.jpeg
-public/sponsors/*.gif
-public/sponsors/*.svg
-public/sponsors/*.webp
-!public/sponsors/README.md
+sponsors/*.png
+sponsors/*.jpg
+sponsors/*.jpeg
+sponsors/*.gif
+sponsors/*.svg
+sponsors/*.webp
+sponsors/README.md
 
 # Logs
 *.log

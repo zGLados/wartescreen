@@ -1,6 +1,6 @@
-# Sponsor-Logos
+# Partner-Logos
 
-Dieser Ordner enthält die Sponsor-Logos, die unten in der Mitte des Bildschirms angezeigt werden.
+Dieser Ordner enthält die Partner-Logos, die unten in der Mitte des Bildschirms angezeigt werden.
 
 ## Unterstützte Formate
 

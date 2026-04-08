@@ -237,8 +237,8 @@
             z-index: 100;
         }
 
-        /* Sponsor-Leiste */
-        .sponsor-bar {
+        /* Partner-Leiste */
+        .partner-bar {
             position: fixed;
             bottom: 20px;
             left: 50%;
@@ -258,16 +258,16 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .sponsor-bar::-webkit-scrollbar {
+        .partner-bar::-webkit-scrollbar {
             height: 4px;
         }
 
-        .sponsor-bar::-webkit-scrollbar-thumb {
+        .partner-bar::-webkit-scrollbar-thumb {
             background: var(--accent-red);
             border-radius: 2px;
         }
 
-        .sponsor-logo {
+        .partner-logo {
             height: 50px;
             max-width: 150px;
             object-fit: contain;
@@ -275,14 +275,9 @@
             transition: all 0.3s ease;
         }
 
-        .sponsor-logo:hover {
+        .partner-logo:hover {
             filter: brightness(1.1);
             transform: scale(1.05);
-        }
-
-        /* Sponsor-Leiste verstecken wenn keine Sponsors */
-        .sponsor-bar:empty {
-            display: none;
         }
     </style>
 </head>
@@ -321,9 +316,10 @@
         <!-- Maps werden per JS eingefügt -->
     </div>
 
-    <!-- Sponsor-Leiste -->
-    <div class="sponsor-bar" id="sponsorBar">
-        <!-- Sponsor-Logos werden per JS eingefügt -->
+    <!-- Partner-Leiste -->
+    <div class="partner-bar" id="partnerBar">
+        <!-- Fallback: TacAM Logo wenn keine anderen Partners -->
+        <img src="/partners/TacAM_logo.png" class="partner-logo partner-fallback" alt="TacAM" id="tacamFallback">
     </div>
 
     <script>
@@ -332,7 +328,7 @@
         let SHOW_VETO = false;
         let REFRESH_INTERVAL = 5000;
         let VIDEO_FILES = [];
-        let SPONSOR_FILES = [];
+        let PARTNER_FILES = [];
 
         // Match ID aus der URL extrahieren
         const MATCH_ID = window.location.pathname.slice(1); // Entfernt den führenden "/"
@@ -347,7 +343,7 @@
                 SHOW_VETO = config.showVeto;
                 REFRESH_INTERVAL = config.refreshInterval;
                 VIDEO_FILES = config.videoFiles;
-                SPONSOR_FILES = config.sponsorFiles || [];
+                PARTNER_FILES = config.partnerFiles || [];
                 
                 // Nach dem Laden der Config initialisieren
                 initApp();
@@ -434,24 +430,31 @@
             }
         }
 
-        // Sponsor-Logos laden und anzeigen
-        function initSponsors() {
-            const sponsorBar = document.getElementById('sponsorBar');
-            sponsorBar.innerHTML = ''; // Clear existing
+        // Partner-Logos laden und anzeigen
+        function initPartners() {
+            const partnerBar = document.getElementById('partnerBar');
+            const fallbackLogo = document.getElementById('tacamFallback');
             
-            if (SPONSOR_FILES && SPONSOR_FILES.length > 0) {
-                SPONSOR_FILES.forEach(file => {
+            if (PARTNER_FILES && PARTNER_FILES.length > 0) {
+                // Echte Partner-Logos vorhanden - Fallback entfernen
+                if (fallbackLogo) {
+                    fallbackLogo.remove();
+                }
+                
+                // Partner-Logos einfügen
+                PARTNER_FILES.forEach(file => {
                     const img = document.createElement('img');
-                    img.src = `/sponsors/${file}`;
-                    img.className = 'sponsor-logo';
-                    img.alt = 'Sponsor';
+                    img.src = `/partners/${file}`;
+                    img.className = 'partner-logo';
+                    img.alt = 'Partner';
                     img.onerror = () => {
-                        console.error('Failed to load sponsor logo:', file);
+                        console.error('Failed to load partner logo:', file);
                         img.style.display = 'none';
                     };
-                    sponsorBar.appendChild(img);
+                    partnerBar.appendChild(img);
                 });
             }
+            // Wenn keine Partner-Logos, bleibt das Fallback-Logo sichtbar
         }
 
         // Lokale Videos initialisieren
@@ -708,7 +711,7 @@
             fetchMatchData();
             setInterval(fetchMatchData, REFRESH_INTERVAL);
             initBackgroundVideo();
-            initSponsors();
+            initPartners();
         }
 
         // Config laden und App starten

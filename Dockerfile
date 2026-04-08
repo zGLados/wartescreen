@@ -23,6 +23,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY server.js ./
 COPY public ./public
 COPY videos ./videos
+COPY partners ./partners
 
 # Create a non-root user
 RUN addgroup -g 1001 -S nodejs && \
