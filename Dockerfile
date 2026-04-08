@@ -22,7 +22,7 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy application files
 COPY server.js ./
 COPY public ./public
-COPY videos ./videos
+# Videos werden via volume gemountet (nicht kopiert)
 COPY partners ./partners
 
 # Create a non-root user
