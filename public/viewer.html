@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -533,7 +533,7 @@
             
             if (!MATCH_ID || !API_KEY) {
                 console.error('Missing MATCH_ID or API_KEY');
-                actionDisplay.textContent = "Fehler: Match ID oder API Key fehlt!";
+                actionDisplay.textContent = "Error: Match ID or API Key is missing!";
                 return;
             }
 
@@ -555,13 +555,13 @@
                 renderVeto(data);
             } catch (error) {
                 console.error("FACEIT API Error:", error);
-                actionDisplay.textContent = `Verbindung zu FACEIT fehlgeschlagen: ${error.message}`;
+                actionDisplay.textContent = `Failed to connect to FACEIT: ${error.message}`;
             }
         }
 
         async function fetchAndRenderSimpleCountdown() {
             if (!MATCH_ID || !API_KEY) {
-                actionDisplay.textContent = "Fehler: Match ID oder API Key fehlt!";
+                actionDisplay.textContent = "Error: Match ID or API Key is missing!";
                 return;
             }
             try {
@@ -586,7 +586,7 @@
                 renderSimpleCountdown(data);
             } catch (error) {
                 console.error("FACEIT API Error:", error);
-                actionDisplay.textContent = `Verbindung zu FACEIT fehlgeschlagen: ${error.message}`;
+                actionDisplay.textContent = `Failed to connect to FACEIT: ${error.message}`;
             }
         }
 
@@ -769,6 +769,10 @@
             
             const teams = [data.teams.faction1, data.teams.faction2];
             
+            // Sort teams so tacam is always on the left
+            const tacamIndex = teams.findIndex(t => t.name.toLowerCase().includes("tacam"));
+            if (tacamIndex === 1) teams.reverse();
+            
             // Hole Scores aus den results wenn verfügbar
             let team1Score = 0;
             let team2Score = 0;
@@ -843,7 +847,7 @@
                     .outro-team-logo {
                         width: 120px;
                         height: 120px;
-                        border-radius: 50%;
+                        border-radius: 0;
                         margin-bottom: 15px;
                         background: var(--card-bg);
                         display: flex;
@@ -947,17 +951,17 @@
             // FACEIT Status-Mapping
             switch(data.status) {
                 case 'FINISHED':
-                    // Outro wird bereits in renderVeto/fetchAndRenderSimpleCountdown gehandhabt
+                    // Outro will already be handled in renderVeto/fetchAndRenderSimpleCountdown
                     actionDisplay.textContent = "Match finished!";
                     if (!hasTimerOverride) clearInterval(timerInterval);
                     break;
                     
                 case 'READY':
-                    // Match ist ready - zeige "Time to connect" wenn configured_at vorhanden
+                    // Match is ready - show "Time to connect" if configured_at exists
                     if (data.configured_at && data.configured_at > now - 600) {
                         actionDisplay.textContent = "Time to connect!";
                         if (!hasTimerOverride) {
-                            // 10 Minuten Timer ab configured_at
+                            // 10 minutes timer from configured_at
                             const elapsed = now - data.configured_at;
                             const remaining = Math.max(0, 600 - elapsed);
                             if (remaining > 0) startTimer(remaining);
@@ -977,7 +981,7 @@
                     
                 case 'CONFIGURING':
                     actionDisplay.textContent = "Setting lineup...";
-                    // Lineup-Phase hat 3 Minuten Timer ab configured_at
+                    // Lineup phase has 3 minutes timer from configured_at
                     if (data.configured_at && data.configured_at > now - 180) {
                         if (!hasTimerOverride) {
                             const elapsed = now - data.configured_at;
@@ -1004,7 +1008,7 @@
                     break;
                     
                 default:
-                    // Fallback: Prüfe scheduled_at für "Upcoming match"
+                    // Fallback: Check scheduled_at for "Upcoming match"
                     if (data.scheduled_at && data.scheduled_at > now) {
                         actionDisplay.textContent = "Upcoming match";
                         if (!hasTimerOverride) {

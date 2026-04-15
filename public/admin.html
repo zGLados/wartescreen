@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -257,35 +257,35 @@
         <h1>🎮 Admin Timer Control</h1>
 
         <div class="card">
-            <h2 class="section-title">Match ID Eingabe</h2>
+            <h2 class="section-title">Match ID Input</h2>
             <div class="form-group">
-                <label for="matchId">Match ID oder FACEIT Matchroom Link</label>
+                <label for="matchId">Match ID or FACEIT Matchroom Link</label>
                 <input 
                     type="text" 
                     id="matchId" 
-                    placeholder="z.B. 1-3f08de52-... oder https://www.faceit.com/en/cs2/room/1-..."
+                    placeholder="e.g. 1-3f08de52-... or https://www.faceit.com/en/cs2/room/1-..."
                 >
                 <small style="color: #888; font-size: 0.85rem; margin-top: 5px; display: block;">
-                    Unterstützt: Match-ID (1-abc-...) oder kompletten FACEIT Matchroom Link
+                    Supported: Match-ID (1-abc-...) or complete FACEIT Matchroom Link
                 </small>
             </div>
 
             <div class="info-box" id="viewerLinkBox" style="display: none;">
                 <h3>📺 Viewer Link</h3>
                 <div class="viewer-link" id="viewerLink"></div>
-                <button class="copy-btn" onclick="copyViewerLink()">Link kopieren</button>
+                <button class="copy-btn" onclick="copyViewerLink()">Copy Link</button>
             </div>
         </div>
 
         <div class="card">
-            <h2 class="section-title">Timer Einstellungen</h2>
+            <h2 class="section-title">Timer Settings</h2>
             
             <div class="form-group">
-                <label for="timerDuration">Timer-Dauer (Sekunden)</label>
+                <label for="timerDuration">Timer Duration (Seconds)</label>
                 <input 
                     type="number" 
                     id="timerDuration" 
-                    placeholder="z.B. 60" 
+                    placeholder="e.g. 60" 
                     min="0"
                     value="60"
                 >
@@ -302,8 +302,8 @@
             <div class="preview-timer" id="previewTimer">01:00</div>
 
             <div class="btn-group">
-                <button class="btn btn-primary" onclick="setTimer()">Timer starten</button>
-                <button class="btn btn-danger" onclick="clearTimer()">Timer zurücksetzen</button>
+                <button class="btn btn-primary" onclick="setTimer()">Start Timer</button>
+                <button class="btn btn-danger" onclick="clearTimer()">Reset Timer</button>
             </div>
 
             <div id="statusMessage" class="status-message"></div>
@@ -315,35 +315,35 @@
             <div class="form-group">
                 <label class="checkbox-label">
                     <input type="checkbox" id="showVetoCheckbox" onchange="updateVetoPreview()" style="margin-right: 10px;" checked>
-                    Pick/Ban Veto anzeigen
+                    Show Pick/Ban Veto
                 </label>
                 <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
-                    Aktiviert = Map-Veto mit Pick/Ban wird angezeigt<br>
-                    Deaktiviert = Nur Teams, Timer und Match-Info
+                    Enabled = Map veto with Pick/Ban is displayed<br>
+                    Disabled = Only teams, timer and match info
                 </p>
             </div>
             </div>
 
             <div class="btn-group">
-                <button class="btn btn-success" onclick="saveVetoSetting()">Veto-Einstellung speichern</button>
-                <button class="btn btn-danger" onclick="resetVetoSetting()">Auf Standard zurücksetzen</button>
+                <button class="btn btn-success" onclick="saveVetoSetting()">Save Veto Setting</button>
+                <button class="btn btn-danger" onclick="resetVetoSetting()">Reset to Default</button>
             </div>
 
             <div id="vetoStatusMessage" class="status-message"></div>
         </div>
 
         <div class="card">
-            <h2 class="section-title">Anleitung</h2>
+            <h2 class="section-title">Instructions</h2>
             <div class="info-box">
-                <p><strong>1.</strong> Match ID eingeben (Format: 1-GUID)</p>
-                <p><strong>2.</strong> Timer-Dauer wählen oder manuell eingeben</p>
-                <p><strong>3.</strong> "Timer starten" klicken</p>
-                <p><strong>4.</strong> Viewer-Seite mit dem generierten Link öffnen</p>
-                <p style="margin-top: 15px;"><strong>🎯 Intelligente Timer-Logik:</strong></p>
-                <p style="margin-left: 20px;">• Wenn das Match <strong>in der Zukunft</strong> liegt: FACEIT Countdown läuft zuerst</p>
-                <p style="margin-left: 20px;">• Sobald das Match <strong>startet</strong>: Dein manueller Timer wird aktiv</p>
-                <p style="margin-left: 20px;">• Du kannst den Timer vorab setzen - er aktiviert sich automatisch!</p>
-                <p style="margin-top: 15px;"><strong>Hinweis:</strong> Der Timer wird live auf der Viewer-Seite aktualisiert.</p>
+                <p><strong>1.</strong> Enter Match ID (Format: 1-GUID)</p>
+                <p><strong>2.</strong> Select timer duration or enter manually</p>
+                <p><strong>3.</strong> Click "Start Timer"</p>
+                <p><strong>4.</strong> Open viewer page with the generated link</p>
+                <p style="margin-top: 15px;"><strong>🎯 Smart Timer Logic:</strong></p>
+                <p style="margin-left: 20px;">• When the match is <strong>in the future</strong>: FACEIT countdown runs first</p>
+                <p style="margin-left: 20px;">• As soon as the match <strong>starts</strong>: Your manual timer becomes active</p>
+                <p style="margin-left: 20px;">• You can set the timer in advance - it activates automatically!</p>
+                <p style="margin-top: 15px;"><strong>Note:</strong> The timer is updated live on the viewer page.</p>
             </div>
         </div>
     </div>
@@ -427,17 +427,17 @@
             const duration = parseInt(timerDurationInput.value);
 
             if (!matchId) {
-                showStatus('Bitte Match ID oder FACEIT Link eingeben!', 'error');
+                showStatus('Please enter Match ID or FACEIT Link!', 'error');
                 return;
             }
 
             if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
-                showStatus('Ungültige Match ID! Format: 1-abc-... oder gültiger FACEIT Link', 'error');
+                showStatus('Invalid Match ID! Format: 1-abc-... or valid FACEIT Link', 'error');
                 return;
             }
 
             if (!duration || duration <= 0) {
-                showStatus('Bitte gültige Timer-Dauer eingeben!', 'error');
+                showStatus('Please enter valid timer duration!', 'error');
                 return;
             }
 
@@ -453,13 +453,13 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showStatus(`✓ Timer erfolgreich auf ${duration}s gesetzt!`, 'success');
+                    showStatus(`✓ Timer successfully set to ${duration}s!`, 'success');
                 } else {
-                    showStatus('Fehler beim Setzen des Timers', 'error');
+                    showStatus('Error setting timer', 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                showStatus('Verbindungsfehler: ' + error.message, 'error');
+                showStatus('Connection error: ' + error.message, 'error');
             }
         }
 
@@ -468,12 +468,12 @@
             const matchId = extractMatchId(input);
 
             if (!matchId) {
-                showStatus('Bitte Match ID oder FACEIT Link eingeben!', 'error');
+                showStatus('Please enter Match ID or FACEIT Link!', 'error');
                 return;
             }
 
             if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
-                showStatus('Ungültige Match ID! Format: 1-abc-... oder gültiger FACEIT Link', 'error');
+                showStatus('Invalid Match ID! Format: 1-abc-... or valid FACEIT Link', 'error');
                 return;
             }
 
@@ -485,13 +485,13 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showStatus('✓ Timer zurückgesetzt! Viewer nutzt wieder FACEIT-Daten.', 'success');
+                    showStatus('✓ Timer reset! Viewer now uses FACEIT data again.', 'success');
                 } else {
-                    showStatus('Fehler beim Zurücksetzen', 'error');
+                    showStatus('Error resetting', 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                showStatus('Verbindungsfehler: ' + error.message, 'error');
+                showStatus('Connection error: ' + error.message, 'error');
             }
         }
 
@@ -508,9 +508,9 @@
         function copyViewerLink() {
             const link = viewerLink.textContent;
             navigator.clipboard.writeText(link).then(() => {
-                showStatus('✓ Link in Zwischenablage kopiert!', 'success');
+                showStatus('✓ Link copied to clipboard!', 'success');
             }).catch(err => {
-                showStatus('Fehler beim Kopieren', 'error');
+                showStatus('Error copying', 'error');
             });
         }
 
@@ -541,12 +541,12 @@
             const matchId = extractMatchId(input);
 
             if (!matchId) {
-                showVetoStatus('Bitte Match ID oder FACEIT Link eingeben!', 'error');
+                showVetoStatus('Please enter Match ID or FACEIT Link!', 'error');
                 return;
             }
 
             if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
-                showVetoStatus('Ungültige Match ID! Format: 1-abc-... oder gültiger FACEIT Link', 'error');
+                showVetoStatus('Invalid Match ID! Format: 1-abc-... or valid FACEIT Link', 'error');
                 return;
             }
 
@@ -564,13 +564,13 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showVetoStatus(`✓ Veto-Anzeige ${showVeto ? 'aktiviert' : 'deaktiviert'}!`, 'success');
+                    showVetoStatus(`✓ Veto display ${showVeto ? 'enabled' : 'disabled'}!`, 'success');
                 } else {
-                    showVetoStatus('Fehler beim Speichern der Einstellung', 'error');
+                    showVetoStatus('Error saving setting', 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                showVetoStatus('Verbindungsfehler: ' + error.message, 'error');
+                showVetoStatus('Connection error: ' + error.message, 'error');
             }
         }
 
@@ -579,12 +579,12 @@
             const matchId = extractMatchId(input);
 
             if (!matchId) {
-                showVetoStatus('Bitte Match ID oder FACEIT Link eingeben!', 'error');
+                showVetoStatus('Please enter Match ID or FACEIT Link!', 'error');
                 return;
             }
 
             if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
-                showVetoStatus('Ungültige Match ID! Format: 1-abc-... oder gültiger FACEIT Link', 'error');
+                showVetoStatus('Invalid Match ID! Format: 1-abc-... or valid FACEIT Link', 'error');
                 return;
             }
 
@@ -596,14 +596,14 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showVetoStatus('✓ Veto-Einstellung zurückgesetzt! Standard aus .env wird verwendet.', 'success');
+                    showVetoStatus('✓ Veto setting reset! Default from .env is used.', 'success');
                     await loadVetoSetting(); // Reload from default
                 } else {
-                    showVetoStatus('Fehler beim Zurücksetzen', 'error');
+                    showVetoStatus('Error resetting', 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                showVetoStatus('Verbindungsfehler: ' + error.message, 'error');
+                showVetoStatus('Connection error: ' + error.message, 'error');
             }
         }
 

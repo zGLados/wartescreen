@@ -1,53 +1,53 @@
-# FACEIT Wartescreen mit Admin-Interface
+# FACEIT Wartescreen with Admin Interface
 
-Professioneller Waiting Screen für FACEIT CS2 Matches mit Veto-Anzeige, Countdown-Timer und Admin-Interface zur manuellen Steuerung.
+Professional Waiting Screen for FACEIT CS2 Matches with Veto Display, Countdown Timer and Admin Interface for manual control.
 
 ## 🚀 Features
 
-- **URL-basiertes Routing**: Jedes Match hat eine eigene URL mit der Match ID
-- **Admin-Interface**: Manuelles Steuern des Timers für jedes Match
-- **🔒 Passwortschutz**: Admin-Interface durch Basic Authentication gesichert
-- **FACEIT API Integration**: Automatisches Abrufen von Team-Infos, Veto-Daten und Match-Zeiten
-- **Hintergrund-Videos**: Automatisches Abspielen von Highlight-Videos (automatische Erkennung)
-- **Responsive Design**: Funktioniert auf allen Bildschirmgrößen
-- **Live-Updates**: Timer und Veto-Status werden automatisch aktualisiert
-- **🐳 Docker Support**: Einfaches Deployment mit Docker & Docker Compose
-- **Zentrale Konfiguration**: Alle Einstellungen in einer `.env` Datei
+- **URL-based Routing**: Each match has its own URL with the Match ID
+- **Admin Interface**: Manually control the timer for each match
+- **🔒 Password Protection**: Admin interface secured by Basic Authentication
+- **FACEIT API Integration**: Automatic retrieval of team info, veto data and match times
+- **Background Videos**: Automatic playback of highlight videos (automatic detection)
+- **Responsive Design**: Works on all screen sizes
+- **Live Updates**: Timer and veto status are automatically updated
+- **🐳 Docker Support**: Easy deployment with Docker & Docker Compose
+- **Central Configuration**: All settings in one `.env` file
 
-## 📋 Voraussetzungen
+## 📋 Prerequisites
 
 **Option 1: Lokal mit Node.js**
 - **Node.js** (Version 14 oder höher)
 - **npm** (wird mit Node.js installiert)
 - **FACEIT API Key** (erhältlich auf https://developers.faceit.com/)
 
-**Option 2: Mit Docker** 🐳 (empfohlen für Server)
+**Option 2: With Docker** 🐳 (recommended for servers)
 - **Docker** (Version 20.10+)
 - **Docker Compose** (Version 2.0+)
 - **FACEIT API Key**
 
 ## 🔧 Installation
 
-### Option 1: Mit Docker 🐳 (empfohlen)
+### Option 1: With Docker 🐳 (recommended)
 
 ```bash
-# 1. .env Datei erstellen (von .env.example kopieren)
+# 1. Create .env file (copy from .env.example)
 cp .env.example .env
 
-# 2. .env bearbeiten und API Key eintragen
-nano .env  # oder ein anderer Editor
+# 2. Edit .env and add API Key
+nano .env  # or another editor
 
-# 3. Container starten
+# 3. Start container
 docker-compose up -d
 ```
 
-**Fertig!** Der Server läuft auf http://localhost:3000
+**Done!** The server runs on http://localhost:3000
 
-📖 Ausführliche Docker-Anleitung: [DOCKER.md](DOCKER.md)
+📖 Detailed Docker guide: [DOCKER.md](DOCKER.md)
 
-### Option 2: Lokal mit Node.js
+### Option 2: Local with Node.js
 
-#### 1. Abhängigkeiten installieren
+#### 1. Install dependencies
 
 ```bash
 npm install
@@ -137,28 +137,28 @@ http://localhost:3000/1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6
 
 Öffne diesen Link in OBS oder einem Browser für die Viewer-Ansicht.
 
-## 🌐 Server-Deployment
+## 🌟 Server Deployment
 
-### Auf einem Linux-Server (z.B. Ubuntu)
+### On a Linux Server (e.g. Ubuntu)
 
-1. **Node.js installieren**:
+1. **Install Node.js**:
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt-get install -y nodejs
 ```
 
-2. **Projekt hochladen**:
+2. **Upload project**:
 ```bash
 scp -r wartescreen/ user@server:/var/www/
 ```
 
-3. **Dependencies installieren**:
+3. **Install dependencies**:
 ```bash
 cd /var/www/wartescreen
 npm install
 ```
 
-4. **Mit PM2 dauerhaft laufen lassen**:
+4. **Run permanently with PM2**:
 ```bash
 sudo npm install -g pm2
 pm2 start server.js --name "faceit-wartescreen"
@@ -168,7 +168,7 @@ pm2 startup
 
 5. **Nginx Reverse Proxy** (optional):
 
-Erstelle eine Nginx-Config `/etc/nginx/sites-available/wartescreen`:
+Create Nginx config `/etc/nginx/sites-available/wartescreen`:
 
 ```nginx
 server {
@@ -193,9 +193,9 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### Port ändern
+### Change Port
 
-Setze die Umgebungsvariable `PORT`:
+Set the environment variable `PORT`:
 
 ```bash
 PORT=8080 npm start

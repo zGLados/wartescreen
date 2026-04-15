@@ -1,26 +1,26 @@
-# 🚀 Schnellstart-Anleitung
+# 🚀 Quick Start Guide
 
-Diese Anleitung hilft dir, den FACEIT Wartescreen schnell zum Laufen zu bringen.
+This guide helps you get the FACEIT Waiting Screen up and running quickly.
 
-## ⚡ In 3 Minuten starten
+## ⚡ Get Started in 3 Minutes
 
-### Schritt 1: Dependencies installieren
+### Step 1: Install Dependencies
 
-**Option A: Mit Docker 🐳 (empfohlen für Server)**
+**Option A: With Docker 🐳 (recommended for servers)**
 
 ```bash
-# Keine Installation nötig - nur Docker muss installiert sein!
+# No installation needed - only Docker must be installed!
 ```
 
-**Option B: Mit Node.js (für lokale Entwicklung)**
+**Option B: With Node.js (for local development)**
 
-Öffne ein Terminal im Projekt-Ordner und führe aus:
+Open a terminal in the project folder and run:
 
 ```bash
 npm install
 ```
 
-### Schritt 2: Konfiguration erstellen
+### Step 2: Create Configuration
 
 ```bash
 # .env Datei aus Vorlage erstellen
@@ -44,60 +44,60 @@ REFRESH_INTERVAL=5000
 
 ### Schritt 3: Server starten
 
-**Mit Docker:**
+**With Docker:**
 
 ```bash
 docker-compose up -d
 ```
 
-**Mit Node.js:**
+**With Node.js:**
 
 ```bash
 npm start
 ```
 
-Der Server läuft jetzt auf **http://localhost:3000**
+The server now runs on **http://localhost:3000**
 
-## 🔑 Admin-Interface öffnen
+## 🔑 Open Admin Interface
 
-Das Admin-Interface ist passwortgeschützt!
+The admin interface is password protected!
 
-Beim ersten Aufruf von `http://localhost:3000/admin` wirst du nach Benutzername und Passwort gefragt:
+When first accessing `http://localhost:3000/admin` you will be asked for username and password:
 
-- **Benutzername**: `admin` (oder dein ADMIN_USERNAME aus .env)
-- **Passwort**: Das Passwort aus deiner `.env` Datei
+- **Username**: `admin` (or your ADMIN_USERNAME from .env)
+- **Password**: The password from your `.env` file
 
-⚠️ **WICHTIG**: Ändere das Passwort in der `.env` vor dem Production-Einsatz!
+⚠️ **IMPORTANT**: Change the password in `.env` before production use!
 
-### 2. Match ID eingeben
+### 2. Enter Match ID
 
-Die Match ID findest du in der FACEIT Match Room URL:
+Find the Match ID in the FACEIT Match Room URL:
 
 ```
-https://www.faceit.com/de/cs2/room/1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6
+https://www.faceit.com/en/cs2/room/1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6
                                     └──────────────────────┬──────────────────────┘
-                                                    Das ist die Match ID
+                                                    This is the Match ID
 ```
 
-Kopiere nur den Teil: `1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6`
+Copy only this part: `1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6`
 
-### 3. Timer einstellen
+### 3. Set Timer
 
-- Klicke auf eine der Quick-Time-Buttons (z.B. "1min")
-- Oder gib eine eigene Zeit in Sekunden ein
-- Klicke "Timer starten"
+- Click one of the Quick Time buttons (e.g. "1min")
+- Or enter a custom time in seconds
+- Click "Start Timer"
 
-### 4. Viewer öffnen
+### 4. Open Viewer
 
-Der Viewer-Link wird automatisch generiert:
+The viewer link is automatically generated:
 ```
 http://localhost:3000/1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6
 ```
 
-Öffne diesen Link in:
-- **OBS Browser Source** (empfohlen)
-- Separatem Browser-Fenster
-- Zweitem Monitor
+Open this link in:
+- **OBS Browser Source** (recommended)
+- Separate browser window
+- Second monitor
 
 ## 🎬 In OBS einbinden
 

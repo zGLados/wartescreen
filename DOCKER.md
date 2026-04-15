@@ -1,6 +1,6 @@
 # 🐳 Docker Deployment Guide
 
-Diese Anleitung zeigt dir, wie du den FACEIT Wartescreen mit Docker betreibst.
+This guide shows you how to run the FACEIT Waiting Screen with Docker.
 
 ## 📋 Voraussetzungen
 
