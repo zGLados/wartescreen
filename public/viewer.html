@@ -370,6 +370,7 @@
         let hasTimerOverride = false;
         let zeroTimerTimeout = null;
         let isOngoingTimerRunning = false;
+        let vetoInitiallyRendered = false;
         
         const grid = document.getElementById('mapGrid');
         const timerDisplay = document.getElementById('timer');
@@ -697,8 +698,15 @@
                 if (isPicked) card.classList.add('picked');
                 if (isBanned) card.classList.add('banned');
                 
-                // Animation delay für nacheinander erscheinen
-                card.style.animationDelay = `${index * 0.15}s`;
+                // Animation delay für nacheinander erscheinen (nur beim ersten Mal)
+                if (!vetoInitiallyRendered) {
+                    card.style.animationDelay = `${index * 1}s`;
+                } else {
+                    // Bei Updates sofort sichtbar machen (keine Animation)
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                    card.style.animation = 'none';
+                }
 
                 // Priorisierung: 1. FACEIT image_lg, 2. Lokale Bilder, 3. Placeholder
                 const mapImg = map.image_lg || getMapImage(map.name) || `https://via.placeholder.com/150x200?text=${map.name}`;
@@ -710,6 +718,11 @@
                 `;
                 grid.appendChild(card);
             });
+
+            // Markiere Veto als initial gerendert nach der ersten Anzeige
+            if (!vetoInitiallyRendered) {
+                vetoInitiallyRendered = true;
+            }
 
             updateStatusText(data);
         }
