@@ -1,0 +1,290 @@
+:root {
+    --bg-color: #0f1722;
+    --card-bg: #1b2735;
+    --accent-blue: #122448;
+    --accent-red: #c83737;
+    --ban-red: #ff4d4d;
+    --pick-green: #2ecc71;
+    --text-color: #ffffff;
+}
+
+body {
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#bg-video-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: var(--bg-color);
+    overflow: hidden;
+}
+
+#bg-video-local {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.3;
+}
+
+#bg-video-youtube {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 100%;
+    min-height: 100%;
+}
+
+#bg-video-youtube iframe {
+    width: 100vw;
+    height: 56.25vw;
+    min-height: 100vh;
+    min-width: 177.77vh;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+#timer {
+    font-size: 5rem;
+    font-weight: bold;
+    font-family: monospace;
+    color: var(--accent-red);
+    text-shadow: 0 0 20px rgba(200, 55, 55, 0.5);
+}
+
+.team-container {
+    display: flex;
+    gap: 50px;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.team-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    min-width: 250px;
+}
+
+.team-logo {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 15px rgba(255,255,255,0.3));
+}
+
+.team-home { 
+    color: var(--accent-blue); 
+}
+
+.team-away { 
+    color: var(--accent-red); 
+}
+
+.map-grid {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 1200px;
+}
+
+.map-card {
+    width: 150px;
+    height: 200px;
+    background-color: var(--card-bg);
+    border: 2px solid #333;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 10px;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: mapCardAppear 1s ease forwards;
+}
+
+@keyframes mapCardAppear {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.map-card img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.6;
+    z-index: 1;
+}
+
+.map-name {
+    z-index: 2;
+    font-weight: bold;
+    text-transform: uppercase;
+    background: rgba(0,0,0,0.7);
+    width: 100%;
+    text-align: center;
+    padding: 5px 0;
+}
+
+.map-card.banned {
+    border-color: var(--ban-red);
+    filter: grayscale(1) brightness(0.5);
+}
+
+.map-card.banned::after {
+    content: "BANNED";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-20deg);
+    color: var(--ban-red);
+    font-size: 1.5rem;
+    border: 3px solid var(--ban-red);
+    padding: 5px;
+    z-index: 3;
+}
+
+.map-card.picked {
+    border-color: var(--pick-green);
+    transform: scale(1.03);
+    box-shadow: 0 0 18px var(--pick-green);
+}
+
+.status-label {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    z-index: 4;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.8);
+}
+
+.match-info-header {
+    text-align: center;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#league-name { 
+    background: var(--accent-red); 
+    color: white; 
+    padding: 5px 20px; 
+    font-size: 1.6rem; 
+    margin: 0; 
+    border-radius: 2px;
+}
+
+#match-format { 
+    color: var(--text-color); 
+    font-size: 1.05rem; 
+    opacity: 0.8; 
+    margin: 5px 0;
+    background: rgba(255,255,255,0.1); 
+    display: inline-block; 
+    padding: 2px 10px; 
+    border-radius: 4px;
+}
+
+#current-action {
+    margin: 15px 0 5px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.8;
+    font-weight: bold;
+}
+
+.timer-override-indicator {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: var(--accent-blue);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    z-index: 100;
+}
+
+/* Partner-Leiste */
+.partner-bar {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 30px;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 30px;
+    background: rgba(27, 39, 53, 0.95);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+    z-index: 999;
+    max-width: 90%;
+    overflow-x: auto;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.partner-bar::-webkit-scrollbar {
+    height: 4px;
+}
+
+.partner-bar::-webkit-scrollbar-thumb {
+    background: var(--accent-red);
+    border-radius: 2px;
+}
+
+.partner-logo {
+    height: 50px;
+    max-width: 150px;
+    object-fit: contain;
+    filter: brightness(0.95);
+    transition: all 0.3s ease;
+}
+
+.partner-logo:hover {
+    filter: brightness(1.1);
+    transform: scale(1.05);
+}
