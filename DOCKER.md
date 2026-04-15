@@ -2,12 +2,12 @@
 
 This guide shows you how to run the FACEIT Waiting Screen with Docker.
 
-## 📋 Voraussetzungen
+## 📋 Prerequisites
 
-- **Docker** installiert (Version 20.10+)
-- **Docker Compose** installiert (Version 2.0+)
+- **Docker** installed (Version 20.10+)
+- **Docker Compose** installed (Version 2.0+)
 
-### Docker installieren
+### Install Docker
 
 **Windows/Mac:**
 - Docker Desktop: https://www.docker.com/products/docker-desktop
@@ -19,100 +19,103 @@ sudo sh get-docker.sh
 sudo usermod -aG docker $USER
 ```
 
-## 🚀 Schnellstart mit Docker
+## 🚀 Quick Start with Docker
 
-### 1. .env Datei konfigurieren
+### 1. Configure .env file
 
-Bearbeite die `.env` Datei und trage deinen API Key ein:
+Edit the `.env` file and add your API key:
 
 ```env
-FACEIT_API_KEY=dein-api-key-hier
+FACEIT_API_KEY=your-api-key-here
 PORT=3000
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=dein-sicheres-passwort
+ADMIN_PASSWORD=your-secure-password
 SHOW_VETO=false
 REFRESH_INTERVAL=5000
 ```
 
-**Hinweis**: Alle Videos im `videos/` Ordner werden automatisch erkannt. Du musst keine Video-Liste mehr pflegen!
+**Note**: All videos in the `videos/` folder and all partner logos in the `public/partners/` folder are automatically detected. No manual configuration needed!
 
-**⚠️ Sicherheit**: Das Admin-Interface ist durch HTTP Basic Authentication geschützt. Ändere unbedingt das Passwort vor dem Production-Deployment!
+**⚠️ Security**: The admin interface is protected by HTTP Basic Authentication. Make sure to change the password before production deployment!
 
-### 2. Container starten
+### 2. Start container
 
 ```bash
 docker-compose up -d
 ```
 
-Das war's! Der Server läuft jetzt auf **http://localhost:3000**
+That's it! The server is now running on **http://localhost:3000**
 
-### 3. Logs anschauen
+### 3. View logs
 
 ```bash
 docker-compose logs -f
 ```
 
-### 4. Container stoppen
+### 4. Stop container
 
 ```bash
 docker-compose down
 ```
 
-## 🔧 Docker-Befehle
+## 🔧 Docker Commands
 
-### Container neu bauen (nach Code-Änderungen)
+### Rebuild container (after code changes)
 
 ```bash
 docker-compose up -d --build
 ```
 
-### Container Status prüfen
+### Check container status
 
 ```bash
 docker-compose ps
 ```
 
-### In Container einloggen
+### Access container shell
 
 ```bash
 docker exec -it faceit-wartescreen sh
 ```
 
-### Container neu starten
+### Restart container
 
 ```bash
 docker-compose restart
 ```
 
-### Alle Container und Volumes löschen
+### Remove all containers and volumes
 
 ```bash
 docker-compose down -v
 ```
 
-## 📦 Manueller Docker Build
+## 📦 Manual Docker Build
 
-Wenn du ohne docker-compose arbeiten möchtest:
+If you want to work without docker-compose:
 
-### Image bauen
+### Build image
 
 ```bash
 docker build -t faceit-wartescreen .
 ```
 
-### Container starten
+### Start container
 
 ```bash
 docker run -d \
   --name faceit-wartescreen \
   -p 3000:3000 \
-  -e FACEIT_API_KEY="dein-api-key" \
+  -e FACEIT_API_KEY="your-api-key" \
   -e SHOW_VETO=false \
-  -v $(pwd)/Videos:/app/Videos:ro \
+  -v $(pwd)/videos:/app/videos:ro \
+  -v $(pwd)/public/partners:/app/public/partners:ro \
   faceit-wartescreen
 ```
 
-### Container stoppen
+**Note**: Both `videos/` and `public/partners/` folders are mounted as read-only volumes.
+
+### Stop container
 
 ```bash
 docker stop faceit-wartescreen
@@ -121,9 +124,9 @@ docker rm faceit-wartescreen
 
 ## 🌍 Production Deployment
 
-### Mit Reverse Proxy (Nginx)
+### With Reverse Proxy (Nginx)
 
-**docker-compose.yml** erweitern:
+**Extend docker-compose.yml**:
 
 ```yaml
 services:
@@ -148,7 +151,7 @@ services:
     # Remove ports section when using nginx
 ```
 
-**nginx.conf** Beispiel:
+**nginx.conf** example:
 
 ```nginx
 events {
@@ -162,7 +165,7 @@ http {
 
     server {
         listen 80;
-        server_name deinserver.com;
+        server_name yourserver.com;
 
         location / {
             proxy_pass http://wartescreen;
@@ -176,7 +179,7 @@ http {
 }
 ```
 
-### Mit Traefik
+### With Traefik
 
 ```yaml
 services:
@@ -184,110 +187,135 @@ services:
     # ... existing config
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.wartescreen.rule=Host(`deinserver.com`)"
+      - "traefik.http.routers.wartescreen.rule=Host(`yourserver.com`)"
       - "traefik.http.routers.wartescreen.entrypoints=websecure"
       - "traefik.http.routers.wartescreen.tls.certresolver=letsencrypt"
 ```
 
-## 🔄 Updates durchführen
+## 🔄 Performing Updates
 
-### 1. Code aktualisieren
+### 1. Update code
 
 ```bash
 git pull
 ```
 
-### 2. Container neu bauen und starten
+### 2. Rebuild and restart container
 
 ```bash
 docker-compose up -d --build
 ```
 
-### 3. Alte Images aufräumen
+### 3. Clean up old images
 
 ```bash
 docker image prune -f
 ```
 
-## 💾 Videos aktualisieren
+## 💾 Update Videos and Partner Logos
 
-Da die Videos als Volume gemountet sind, kannst du sie einfach im `videos/` Ordner aktualisieren:
+Since videos and partner logos are mounted as volumes, you can simply update them in their respective folders:
+
+### Add new videos
 
 ```bash
-# Neue Videos hinzufügen
-cp neue-videos/*.mp4 ./videos/
+# Add new videos
+cp new-videos/*.mp4 ./videos/
 
-# Container neu starten
+# Restart container
 docker-compose restart
 ```
 
-Die Videos werden automatisch erkannt - keine Config-Änderungen nötig!
+### Add partner logos
+
+```bash
+# Add new partner logos
+cp partner-logos/*.png ./public/partners/
+
+# Restart container
+docker-compose restart
+```
+
+Videos and logos are automatically detected - no config changes needed!
 
 ## 🐛 Troubleshooting
 
-### Port bereits belegt
+### Port already in use
 
 ```bash
-# Port in .env ändern
+# Change port in .env
 PORT=8080
 
-# Container neu starten
+# Restart container
 docker-compose up -d
 ```
 
-### Container startet nicht
+### Container won't start
 
 ```bash
-# Logs prüfen
+# Check logs
 docker-compose logs
 
-# Health Check prüfen
+# Check health status
 docker inspect faceit-wartescreen | grep -A 10 Health
 ```
 
-### Volumes zurücksetzen
+### Reset volumes
 
 ```bash
 docker-compose down -v
 docker-compose up -d
 ```
 
-### Netzwerk-Probleme
+### Network issues
 
 ```bash
-# Netzwerk neu erstellen
+# Recreate network
 docker-compose down
 docker network prune
 docker-compose up -d
 ```
 
+### Partner logos not showing
+
+```bash
+# Verify volume mount
+docker inspect faceit-wartescreen | grep -A 5 Mounts
+
+# Check folder permissions
+ls -la public/partners/
+
+# Restart container
+docker-compose restart
+```
+
 ## 📊 Monitoring
 
-### Container-Ressourcen überwachen
+### Monitor container resources
 
 ```bash
 docker stats faceit-wartescreen
 ```
 
-### Health Status prüfen
+### Check health status
 
 ```bash
 docker inspect --format='{{.State.Health.Status}}' faceit-wartescreen
 ```
 
-### Logs in Datei speichern
+### Save logs to file
 
 ```bash
 docker-compose logs > logs.txt
 ```
 
-## 🔒 Sicherheit
+## 🔒 Security
 
 ### Secrets Management
 
-Für Production solltest du Docker Secrets nutzen:
+For production, you should use Docker Secrets:
 
-**docker-compose.yml** anpassen:
+**Modify docker-compose.yml**:
 
 ```yaml
 services:
@@ -304,11 +332,11 @@ secrets:
 
 ### Non-Root User
 
-Der Container läuft bereits als non-root User (nodejs:1001) für bessere Sicherheit.
+The container already runs as a non-root user (nodejs:1001) for better security.
 
 ### Read-Only Filesystem
 
-Für zusätzliche Sicherheit:
+For additional security:
 
 ```yaml
 services:
@@ -320,7 +348,7 @@ services:
 
 ## 📦 Multi-Platform Build
 
-Für ARM-Server (z.B. Raspberry Pi):
+For ARM servers (e.g., Raspberry Pi):
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 -t faceit-wartescreen .
@@ -328,12 +356,33 @@ docker buildx build --platform linux/amd64,linux/arm64 -t faceit-wartescreen .
 
 ## 🎯 Best Practices
 
-1. **Immer .env für Secrets nutzen** - nie im Code!
-2. **Regelmäßige Updates** - `docker-compose pull && docker-compose up -d`
-3. **Logs rotieren** - verhindert volle Festplatten
-4. **Health Checks nutzen** - automatisches Neustart bei Problemen
-5. **Volumes für Videos** - schnelle Updates ohne Rebuild
+1. **Always use .env for secrets** - never in code!
+2. **Regular updates** - `docker-compose pull && docker-compose up -d`
+3. **Rotate logs** - prevents full disks
+4. **Use health checks** - automatic restart on issues
+5. **Use volumes for videos and logos** - fast updates without rebuild
+6. **Monitor resource usage** - ensure smooth operation
+7. **Backup .env file** - keep credentials safe
+8. **Use strong passwords** - especially for admin interface
+
+## 📝 Volume Management
+
+The application uses two main volumes:
+
+### Videos Volume (`videos/`)
+- Mounted as read-only (`:ro`)
+- Auto-detected on container start
+- Supports: .mp4, .webm, .ogg, .mov
+- Random shuffle playback
+
+### Partner Logos Volume (`public/partners/`)
+- Mounted as read-only (`:ro`)
+- Auto-detected on container start
+- Supports: .png, .jpg, .jpeg, .gif, .svg
+- Fallback to TacAM logo if empty
+
+**Important**: After adding new files to these folders, restart the container with `docker-compose restart` to detect them.
 
 ---
 
-**Bei Fragen: Siehe [README.md](README.md) oder erstelle ein Issue!** 🚀
+**For questions: See [README.md](README.md) or create an issue!** 🚀
