@@ -131,6 +131,16 @@
             align-items: center;
             justify-content: flex-end;
             padding-bottom: 10px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: mapCardAppear 0.5s ease forwards;
+        }
+
+        @keyframes mapCardAppear {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .map-card img {
@@ -358,6 +368,8 @@
         let timerInterval;
         let lastVetoCount = -1;
         let hasTimerOverride = false;
+        let zeroTimerTimeout = null;
+        let isOngoingTimerRunning = false;
         
         const grid = document.getElementById('mapGrid');
         const timerDisplay = document.getElementById('timer');
@@ -375,6 +387,12 @@
 
         function startTimer(duration = 180) {
             clearInterval(timerInterval);
+            if (zeroTimerTimeout) {
+                clearTimeout(zeroTimerTimeout);
+                zeroTimerTimeout = null;
+            }
+            // Reset ONGOING flag wenn neuer Timer gestartet wird
+            isOngoingTimerRunning = false;
             timeLeft = duration;
             updateTimerDisplay();
             timerInterval = setInterval(() => {
@@ -383,6 +401,10 @@
                     updateTimerDisplay();
                 } else if (timeLeft === 0) {
                     clearInterval(timerInterval);
+                    // Nach 5 Sekunden "Soon™" anzeigen
+                    zeroTimerTimeout = setTimeout(() => {
+                        timerDisplay.textContent = "Soon™";
+                    }, 5000);
                 }
             }, 1000);
         }
@@ -648,7 +670,23 @@
                 });
             }
 
-            entities.forEach((map, index) => {
+            // Sortiere Maps: Gepickte Karte zuletzt
+            const sortedMaps = [];
+            const pickedMaps = [];
+            
+            entities.forEach((map) => {
+                const isPicked = picks.includes(map.guid) || picks.includes(map.class_name);
+                if (isPicked) {
+                    pickedMaps.push(map);
+                } else {
+                    sortedMaps.push(map);
+                }
+            });
+            
+            // Füge gepickte Maps am Ende hinzu
+            const finalMaps = [...sortedMaps, ...pickedMaps];
+
+            finalMaps.forEach((map, index) => {
                 const isPicked = picks.includes(map.guid) || picks.includes(map.class_name);
                 const isBanned = (bestOf === 1 && !isPicked) || 
                                  bans.includes(map.guid) || 
@@ -658,6 +696,9 @@
                 card.className = 'map-card';
                 if (isPicked) card.classList.add('picked');
                 if (isBanned) card.classList.add('banned');
+                
+                // Animation delay für nacheinander erscheinen
+                card.style.animationDelay = `${index * 0.15}s`;
 
                 // Priorisierung: 1. FACEIT image_lg, 2. Lokale Bilder, 3. Placeholder
                 const mapImg = map.image_lg || getMapImage(map.name) || `https://via.placeholder.com/150x200?text=${map.name}`;
@@ -771,7 +812,8 @@
             
             // Sort teams so tacam is always on the left
             const tacamIndex = teams.findIndex(t => t.name.toLowerCase().includes("tacam"));
-            if (tacamIndex === 1) teams.reverse();
+            const teamsSwapped = tacamIndex === 1;
+            if (teamsSwapped) teams.reverse();
             
             // Hole Scores aus den results wenn verfügbar
             let team1Score = 0;
@@ -782,12 +824,22 @@
                 const scores = data.results.score;
                 
                 // FACEIT verwendet "faction1" und "faction2" als Keys, nicht die faction_id!
-                team1Score = scores.faction1 || 0;
-                team2Score = scores.faction2 || 0;
+                // Wenn Teams getauscht wurden, müssen auch die Scores getauscht werden
+                if (teamsSwapped) {
+                    team1Score = scores.faction2 || 0;
+                    team2Score = scores.faction1 || 0;
+                } else {
+                    team1Score = scores.faction1 || 0;
+                    team2Score = scores.faction2 || 0;
+                }
                 
                 // Winner ist auch "faction1" oder "faction2", nicht die faction_id
                 const winner = data.results.winner;
-                winnerId = winner === 'faction1' ? teams[0].faction_id : teams[1].faction_id;
+                if (winner === 'faction1') {
+                    winnerId = teamsSwapped ? teams[1].faction_id : teams[0].faction_id;
+                } else if (winner === 'faction2') {
+                    winnerId = teamsSwapped ? teams[0].faction_id : teams[1].faction_id;
+                }
             }
             
             // Hole gespielte Map
@@ -847,20 +899,16 @@
                     .outro-team-logo {
                         width: 120px;
                         height: 120px;
-                        border-radius: 0;
                         margin-bottom: 15px;
-                        background: var(--card-bg);
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        border: 3px solid var(--accent-blue);
-                        overflow: hidden;
-                        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
                     }
                     .outro-team-logo img {
                         width: 100%;
                         height: 100%;
-                        object-fit: cover;
+                        object-fit: contain;
+                        filter: drop-shadow(0 0 15px rgba(255,255,255,0.3));
                     }
                     .outro-team-name {
                         font-size: 1.5rem;
@@ -948,6 +996,11 @@
         function updateStatusText(data) {
             const now = Math.floor(Date.now() / 1000);
             
+            // Reset ONGOING flag wenn Status nicht ONGOING ist
+            if (data.status !== 'ONGOING') {
+                isOngoingTimerRunning = false;
+            }
+            
             // FACEIT Status-Mapping
             switch(data.status) {
                 case 'FINISHED':
@@ -973,9 +1026,10 @@
                     
                 case 'ONGOING':
                     actionDisplay.textContent = "Match is live!";
-                    if (!hasTimerOverride) {
-                        clearInterval(timerInterval);
-                        timerDisplay.textContent = "";
+                    if (!hasTimerOverride && !isOngoingTimerRunning) {
+                        // 3 Minuten Timer für FACEIT Delay (nur einmal starten)
+                        isOngoingTimerRunning = true;
+                        startTimer(120);
                     }
                     break;
                     
