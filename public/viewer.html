@@ -133,7 +133,7 @@
             padding-bottom: 10px;
             opacity: 0;
             transform: translateY(20px);
-            animation: mapCardAppear 0.5s ease forwards;
+            animation: mapCardAppear 1s ease forwards;
         }
 
         @keyframes mapCardAppear {
@@ -699,8 +699,12 @@
                 if (isBanned) card.classList.add('banned');
                 
                 // Animation delay für nacheinander erscheinen (nur beim ersten Mal)
+                // 1s Animation + 1s Pause = 2s pro Map
+                // Gepickte Maps bekommen extra 2s Verzögerung
                 if (!vetoInitiallyRendered) {
-                    card.style.animationDelay = `${index * 1}s`;
+                    const baseDelay = index * 2;
+                    const extraDelay = isPicked ? 2 : 0; // Extra 2s für gepickte Maps
+                    card.style.animationDelay = `${baseDelay + extraDelay}s`;
                 } else {
                     // Bei Updates sofort sichtbar machen (keine Animation)
                     card.style.opacity = '1';
