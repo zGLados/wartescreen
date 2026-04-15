@@ -370,7 +370,7 @@
         let hasTimerOverride = false;
         let zeroTimerTimeout = null;
         let isOngoingTimerRunning = false;
-        let vetoInitiallyRendered = false;
+        let renderedMaps = new Set(); // Tracke bereits gerenderte Maps
         
         const grid = document.getElementById('mapGrid');
         const timerDisplay = document.getElementById('timer');
@@ -655,7 +655,14 @@
                 startTimer();
             }
 
-            grid.innerHTML = '';
+            // Erstelle eine Map der bestehenden Karten für schnellen Zugriff
+            const existingCards = new Map();
+            Array.from(grid.children).forEach(card => {
+                const mapName = card.querySelector('.map-name')?.textContent;
+                if (mapName) {
+                    existingCards.set(mapName, card);
+                }
+            });
 
             // Bei BO1: Alle nicht-gepickten Maps sind gebannt
             const bestOf = data.best_of || 1;
@@ -687,46 +694,54 @@
             // Füge gepickte Maps am Ende hinzu
             const finalMaps = [...sortedMaps, ...pickedMaps];
 
+            let currentAnimationIndex = 0; // Zähler für neue Maps
+
             finalMaps.forEach((map, index) => {
                 const isPicked = picks.includes(map.guid) || picks.includes(map.class_name);
                 const isBanned = (bestOf === 1 && !isPicked) || 
                                  bans.includes(map.guid) || 
                                  bans.includes(map.class_name);
                 
-                const card = document.createElement('div');
-                card.className = 'map-card';
-                if (isPicked) card.classList.add('picked');
-                if (isBanned) card.classList.add('banned');
+                const mapKey = map.guid || map.class_name;
+                const existingCard = existingCards.get(map.name);
                 
-                // Animation delay für nacheinander erscheinen (nur beim ersten Mal)
-                // 1s Animation + 1s Pause = 2s pro Map
-                // Gepickte Maps bekommen extra 2s Verzögerung
-                if (!vetoInitiallyRendered) {
-                    const baseDelay = index * 2;
-                    const extraDelay = isPicked ? 2 : 0; // Extra 2s für gepickte Maps
-                    card.style.animationDelay = `${baseDelay + extraDelay}s`;
+                if (existingCard) {
+                    // Map existiert bereits - nur Klassen aktualisieren
+                    existingCard.className = 'map-card';
+                    if (isPicked) existingCard.classList.add('picked');
+                    if (isBanned) existingCard.classList.add('banned');
+                    // Bereits sichtbar, keine Animation
+                    existingCard.style.opacity = '1';
+                    existingCard.style.transform = 'translateY(0)';
+                    existingCard.style.animation = 'none';
+                    existingCards.delete(map.name); // Markiere als verarbeitet
                 } else {
-                    // Bei Updates sofort sichtbar machen (keine Animation)
-                    card.style.opacity = '1';
-                    card.style.transform = 'translateY(0)';
-                    card.style.animation = 'none';
+                    // Neue Map erstellen
+                    const card = document.createElement('div');
+                    card.className = 'map-card';
+                    if (isPicked) card.classList.add('picked');
+                    if (isBanned) card.classList.add('banned');
+                    
+                    // Neue Map: Animiere sie mit Delay basierend auf bereits gerenderten Maps
+                    const alreadyRenderedCount = grid.children.length;
+                    card.style.animationDelay = `${alreadyRenderedCount * 2}s`;
+                    renderedMaps.add(mapKey);
+                    
+                    // Priorisierung: 1. FACEIT image_lg, 2. Lokale Bilder, 3. Placeholder
+                    const mapImg = map.image_lg || getMapImage(map.name) || `https://via.placeholder.com/150x200?text=${map.name}`;
+
+                    card.innerHTML = `
+                        <img src="${mapImg}" alt="${map.name}" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x200?text=${map.name}';">
+                        <div class="status-label">${getStatusLabel(map, data, bannedMaps)}</div>
+                        <div class="map-name">${map.name}</div>
+                    `;
+                    grid.appendChild(card);
                 }
-
-                // Priorisierung: 1. FACEIT image_lg, 2. Lokale Bilder, 3. Placeholder
-                const mapImg = map.image_lg || getMapImage(map.name) || `https://via.placeholder.com/150x200?text=${map.name}`;
-
-                card.innerHTML = `
-                    <img src="${mapImg}" alt="${map.name}" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x200?text=${map.name}';">
-                    <div class="status-label">${getStatusLabel(map, data, bannedMaps)}</div>
-                    <div class="map-name">${map.name}</div>
-                `;
-                grid.appendChild(card);
             });
 
-            // Markiere Veto als initial gerendert nach der ersten Anzeige
-            if (!vetoInitiallyRendered) {
-                vetoInitiallyRendered = true;
-            }
+            // Entferne Maps die nicht mehr in der Liste sind (sollte nicht passieren, aber sicherheitshalber)
+            existingCards.forEach(card => card.remove());
+            });
 
             updateStatusText(data);
         }
