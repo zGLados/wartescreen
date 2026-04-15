@@ -386,7 +386,7 @@
         let currentVideoIndex = 0;
         let youtubePlayer = null;
 
-        function startTimer(duration = 180) {
+        function startTimer(duration = 120) {
             clearInterval(timerInterval);
             if (zeroTimerTimeout) {
                 clearTimeout(zeroTimerTimeout);
@@ -402,6 +402,7 @@
                     updateTimerDisplay();
                 } else if (timeLeft === 0) {
                     clearInterval(timerInterval);
+                    timerInterval = null; // Auf null setzen damit neuer Timer gestartet werden kann
                     // Nach 5 Sekunden "Soon™" anzeigen
                     zeroTimerTimeout = setTimeout(() => {
                         timerDisplay.textContent = "Soon™";
@@ -535,8 +536,11 @@
                     hasTimerOverride = true;
                     overrideIndicator.style.display = 'block';
                     
-                    // Timer auf Override-Wert setzen
-                    if (Math.abs(timeLeft - data.remaining) > 2) {
+                    // Timer nur starten wenn noch keiner läuft oder große Differenz (Admin hat Timer geändert)
+                    if (!timerInterval) {
+                        startTimer(data.remaining);
+                    } else if (Math.abs(timeLeft - data.remaining) > 10) {
+                        // Nur bei großer Differenz (>10s) neu starten - Admin hat Timer manuell geändert
                         startTimer(data.remaining);
                     }
                 } else {
@@ -652,17 +656,26 @@
             const totalActions = picks.length + bans.length;
             if (totalActions > lastVetoCount && !hasTimerOverride) {
                 lastVetoCount = totalActions;
-                startTimer();
+                // Nur Timer starten wenn noch keiner läuft
+                if (!timerInterval) {
+                    startTimer();
+                }
             }
 
-            // Erstelle eine Map der bestehenden Karten für schnellen Zugriff
+            // Erstelle eine Map der bestehenden sichtbaren Karten für schnellen Zugriff
             const existingCards = new Map();
             Array.from(grid.children).forEach(card => {
                 const mapName = card.querySelector('.map-name')?.textContent;
-                if (mapName) {
+                const isVisible = parseFloat(window.getComputedStyle(card).opacity) > 0;
+                if (mapName && isVisible) {
                     existingCards.set(mapName, card);
                 }
             });
+
+            // Zähle nur sichtbare Maps für Animation-Delay
+            const visibleMapCount = Array.from(grid.children).filter(card => {
+                return parseFloat(window.getComputedStyle(card).opacity) > 0;
+            }).length;
 
             // Bei BO1: Alle nicht-gepickten Maps sind gebannt
             const bestOf = data.best_of || 1;
@@ -705,16 +718,20 @@
                 const mapKey = map.guid || map.class_name;
                 const existingCard = existingCards.get(map.name);
                 
+                // Prüfe ob diese Map bereits im Grid existiert (auch wenn noch nicht sichtbar)
+                const alreadyInGrid = Array.from(grid.children).some(card => 
+                    card.querySelector('.map-name')?.textContent === map.name
+                );
+                
                 if (existingCard) {
-                    // Map existiert bereits - nur Klassen aktualisieren
+                    // Map ist bereits sichtbar - nur Klassen aktualisieren
                     existingCard.className = 'map-card';
                     if (isPicked) existingCard.classList.add('picked');
                     if (isBanned) existingCard.classList.add('banned');
-                    // Bereits sichtbar, keine Animation
-                    existingCard.style.opacity = '1';
-                    existingCard.style.transform = 'translateY(0)';
-                    existingCard.style.animation = 'none';
                     existingCards.delete(map.name); // Markiere als verarbeitet
+                } else if (alreadyInGrid) {
+                    // Map existiert im DOM aber ist noch nicht sichtbar (Animation läuft noch)
+                    // Nichts tun - Animation läuft weiter
                 } else {
                     // Neue Map erstellen
                     const card = document.createElement('div');
@@ -722,9 +739,9 @@
                     if (isPicked) card.classList.add('picked');
                     if (isBanned) card.classList.add('banned');
                     
-                    // Neue Map: Animiere sie mit Delay basierend auf bereits gerenderten Maps
-                    const alreadyRenderedCount = grid.children.length;
-                    card.style.animationDelay = `${alreadyRenderedCount * 2}s`;
+                    // Neue Map: Animiere sie mit Delay basierend auf sichtbaren Maps + neue Maps davor
+                    card.style.animationDelay = `${(visibleMapCount + currentAnimationIndex) * 2}s`;
+                    currentAnimationIndex++; // Inkrementiere für nächste neue Map
                     renderedMaps.add(mapKey);
                     
                     // Priorisierung: 1. FACEIT image_lg, 2. Lokale Bilder, 3. Placeholder
@@ -741,7 +758,6 @@
 
             // Entferne Maps die nicht mehr in der Liste sind (sollte nicht passieren, aber sicherheitshalber)
             existingCards.forEach(card => card.remove());
-            });
 
             updateStatusText(data);
         }
@@ -772,13 +788,18 @@
                 const now = Math.floor(Date.now() / 1000);
                 const diff = data.scheduled_at - now;
                 if (diff > 0) {
-                    startTimer(diff);
+                    // Nur Timer starten wenn noch keiner läuft
+                    if (!timerInterval) {
+                        startTimer(diff);
+                    }
                 } else {
                     clearInterval(timerInterval);
+                    timerInterval = null;
                     timerDisplay.textContent = "00:00";
                 }
             } else if (!hasTimerOverride) {
                 clearInterval(timerInterval);
+                timerInterval = null;
                 timerDisplay.textContent = "00:00";
             }
         }
@@ -1045,7 +1066,7 @@
                     // Match is ready - show "Time to connect" if configured_at exists
                     if (data.configured_at && data.configured_at > now - 600) {
                         actionDisplay.textContent = "Time to connect!";
-                        if (!hasTimerOverride) {
+                        if (!hasTimerOverride && !timerInterval) {
                             // 10 minutes timer from configured_at
                             const elapsed = now - data.configured_at;
                             const remaining = Math.max(0, 600 - elapsed);
@@ -1058,7 +1079,7 @@
                     
                 case 'ONGOING':
                     actionDisplay.textContent = "Match is live!";
-                    if (!hasTimerOverride && !isOngoingTimerRunning) {
+                    if (!hasTimerOverride && !isOngoingTimerRunning && !timerInterval) {
                         // 3 Minuten Timer für FACEIT Delay (nur einmal starten)
                         isOngoingTimerRunning = true;
                         startTimer(120);
@@ -1069,7 +1090,7 @@
                     actionDisplay.textContent = "Setting lineup...";
                     // Lineup phase has 3 minutes timer from configured_at
                     if (data.configured_at && data.configured_at > now - 180) {
-                        if (!hasTimerOverride) {
+                        if (!hasTimerOverride && !timerInterval) {
                             const elapsed = now - data.configured_at;
                             const remaining = Math.max(0, 180 - elapsed);
                             if (remaining > 0) startTimer(remaining);
@@ -1080,7 +1101,7 @@
                 case 'CHECKING_IN':
                     actionDisplay.textContent = "Check-in in progress...";
                     if (data.scheduled_at && data.scheduled_at > now) {
-                        if (!hasTimerOverride) {
+                        if (!hasTimerOverride && !timerInterval) {
                             const diff = data.scheduled_at - now;
                             startTimer(diff);
                         }
@@ -1097,7 +1118,7 @@
                     // Fallback: Check scheduled_at for "Upcoming match"
                     if (data.scheduled_at && data.scheduled_at > now) {
                         actionDisplay.textContent = "Upcoming match";
-                        if (!hasTimerOverride) {
+                        if (!hasTimerOverride && !timerInterval) {
                             const diff = data.scheduled_at - now;
                             startTimer(diff);
                         }
