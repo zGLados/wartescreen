@@ -98,11 +98,13 @@ body {
 }
 
 .team-home { 
-    color: var(--accent-blue); 
+    color: var(--accent-blue);
+    filter: drop-shadow(0 0 15px rgba(255,255,255,0.3));
 }
 
 .team-away { 
-    color: var(--accent-red); 
+    color: var(--accent-red);
+    filter: drop-shadow(0 0 15px rgba(255,255,255,0.3));
 }
 
 .map-grid {
