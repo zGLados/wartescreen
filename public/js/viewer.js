@@ -36,6 +36,7 @@
         let zeroTimerTimeout = null;
         let isOngoingTimerRunning = false;
         let renderedMaps = new Set(); // Tracke bereits gerenderte Maps
+        let lastMatchStatus = null; // Tracke Status-Wechsel
         
         const grid = document.getElementById('mapGrid');
         const timerDisplay = document.getElementById('timer');
@@ -719,6 +720,13 @@
         function updateStatusText(data) {
             const now = Math.floor(Date.now() / 1000);
             
+            // Bei Statuswechsel Timer resetten (außer bei Manual Override)
+            if (lastMatchStatus !== null && lastMatchStatus !== data.status && !hasTimerOverride) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            lastMatchStatus = data.status;
+            
             // Reset ONGOING flag wenn Status nicht ONGOING ist
             if (data.status !== 'ONGOING') {
                 isOngoingTimerRunning = false;
@@ -750,7 +758,7 @@
                 case 'ONGOING':
                     actionDisplay.textContent = "Match is live!";
                     if (!hasTimerOverride && !isOngoingTimerRunning && !timerInterval) {
-                        // 3 Minuten Timer für FACEIT Delay (nur einmal starten)
+                        // 2 Minuten Timer für FACEIT Delay (nur einmal starten)
                         isOngoingTimerRunning = true;
                         startTimer(120);
                     }
