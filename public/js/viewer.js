@@ -632,7 +632,12 @@
                         font-size: 1.5rem;
                         font-weight: 600;
                         margin-bottom: 10px;
-                        color: var(--text-color);
+                    }
+                    .outro-team-name-home {
+                        color: var(--accent-blue);
+                    }
+                    .outro-team-name-away {
+                        color: var(--accent-red);
                     }
                     .outro-team-score {
                         font-size: 4rem;
@@ -686,7 +691,7 @@
                         <div class="outro-team-logo">
                             <img src="${teams[0].avatar || 'https://via.placeholder.com/150'}" alt="${teams[0].name}">
                         </div>
-                        <div class="outro-team-name">${teams[0].name}</div>
+                        <div class="outro-team-name outro-team-name-home">${teams[0].name}</div>
                         <div class="outro-team-score">${team1Score}</div>
                         ${winnerId === teams[0].faction_id ? '<div class="outro-winner-badge">WINNER</div>' : ''}
                     </div>
@@ -697,7 +702,7 @@
                         <div class="outro-team-logo">
                             <img src="${teams[1].avatar || 'https://via.placeholder.com/150'}" alt="${teams[1].name}">
                         </div>
-                        <div class="outro-team-name">${teams[1].name}</div>
+                        <div class="outro-team-name outro-team-name-away">${teams[1].name}</div>
                         <div class="outro-team-score">${team2Score}</div>
                         ${winnerId === teams[1].faction_id ? '<div class="outro-winner-badge">WINNER</div>' : ''}
                     </div>
