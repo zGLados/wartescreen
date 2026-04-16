@@ -58,8 +58,6 @@
                 clearTimeout(zeroTimerTimeout);
                 zeroTimerTimeout = null;
             }
-            // Reset ONGOING flag wenn neuer Timer gestartet wird
-            isOngoingTimerRunning = false;
             timeLeft = duration;
             updateTimerDisplay();
             timerInterval = setInterval(() => {
