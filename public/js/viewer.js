@@ -1,14 +1,14 @@
-// Konfiguration vom Server laden
+// Load configuration from server
         let API_KEY = "";
         let SHOW_VETO = true;
         let REFRESH_INTERVAL = 5000;
         let VIDEO_FILES = [];
         let PARTNER_FILES = [];
 
-        // Match ID aus der URL extrahieren
-        const MATCH_ID = window.location.pathname.slice(1); // Entfernt den führenden "/"
+        // Extract Match ID from URL
+        const MATCH_ID = window.location.pathname.slice(1); // Remove leading "/"
 
-        // Config vom Server laden (mit Match-spezifischen Einstellungen)
+        // Load config from server (with match-specific settings)
         async function loadConfig() {
             try {
                 const response = await fetch(`/api/config/${MATCH_ID}`);
@@ -20,11 +20,11 @@
                 VIDEO_FILES = config.videoFiles;
                 PARTNER_FILES = config.partnerFiles || [];
                 
-                // Nach dem Laden der Config initialisieren
+                // Initialize after loading config
                 initApp();
             } catch (error) {
                 console.error('Failed to load config:', error);
-                // Fallback zu Standardwerten
+                // Fallback to default values
                 initApp();
             }
         }
@@ -35,8 +35,8 @@
         let hasTimerOverride = false;
         let zeroTimerTimeout = null;
         let isOngoingTimerRunning = false;
-        let renderedMaps = new Set(); // Tracke bereits gerenderte Maps
-        let lastMatchStatus = null; // Tracke Status-Wechsel
+        let renderedMaps = new Set(); // Track already rendered maps
+        let lastMatchStatus = null; // Track status changes
         
         const grid = document.getElementById('mapGrid');
         const timerDisplay = document.getElementById('timer');
@@ -52,7 +52,7 @@
         let currentVideoIndex = 0;
         let youtubePlayer = null;
 
-        function startTimer(duration = 120) {
+        function startTimer(duration = 180) {
             clearInterval(timerInterval);
             if (zeroTimerTimeout) {
                 clearTimeout(zeroTimerTimeout);
@@ -66,8 +66,8 @@
                     updateTimerDisplay();
                 } else if (timeLeft === 0) {
                     clearInterval(timerInterval);
-                    timerInterval = null; // Auf null setzen damit neuer Timer gestartet werden kann
-                    // Nach 5 Sekunden "Soon™" anzeigen
+                    timerInterval = null; // Set to null so new timer can be started
+                    // Show "Soon™" after 5 seconds
                     zeroTimerTimeout = setTimeout(() => {
                         timerDisplay.textContent = "Soon™";
                     }, 5000);
@@ -86,11 +86,11 @@
             timerDisplay.textContent = timeString;
         }
 
-        // Map Name zu Bild-URL Mapping (mit Fallbacks)
+        // Map Name to Image URL Mapping (with fallbacks)
         function getMapImage(mapName) {
             const normalizedName = mapName.toLowerCase().replace(/\s+/g, '');
             
-            // Map-Namen Mapping zu Dateinamen
+            // Map names mapping to filenames
             const mapImages = {
                 'ancient': 'CS2_de_ancient.png',
                 'anubis': 'CS2_de_anubis.png',
@@ -118,18 +118,18 @@
             }
         }
 
-        // Partner-Logos laden und anzeigen
+        // Load and display partner logos
         function initPartners() {
             const partnerBar = document.getElementById('partnerBar');
             const fallbackLogo = document.getElementById('tacamFallback');
             
             if (PARTNER_FILES && PARTNER_FILES.length > 0) {
-                // Echte Partner-Logos vorhanden - Fallback entfernen
+                // Real partner logos available - remove fallback
                 if (fallbackLogo) {
                     fallbackLogo.remove();
                 }
                 
-                // Partner-Logos einfügen
+                // Insert partner logos
                 PARTNER_FILES.forEach(file => {
                     const img = document.createElement('img');
                     img.src = `/partners/${file}`;
@@ -142,20 +142,20 @@
                     partnerBar.appendChild(img);
                 });
             }
-            // Wenn keine Partner-Logos, bleibt das Fallback-Logo sichtbar
+            // If no partner logos, fallback logo remains visible
         }
 
-        // Lokale Videos initialisieren
+        // Initialize local videos
         function initLocalVideos() {
             const videoElement = document.getElementById('bg-video-local');
             videoElement.style.display = 'block';
             
             if (videoElement && VIDEO_FILES.length > 0) {
-                // Zufälliges Start-Video
+                // Random start video
                 currentVideoIndex = Math.floor(Math.random() * VIDEO_FILES.length);
                 
                 videoElement.onended = () => {
-                    // Wähle ein anderes zufälliges Video (nicht dasselbe)
+                    // Choose another random video (not the same)
                     if (VIDEO_FILES.length > 1) {
                         let newIndex;
                         do {
@@ -181,13 +181,13 @@
                 const response = await fetch(`/api/timer/${MATCH_ID}`);
                 const data = await response.json();
                 
-                // Wenn Match in der Zukunft liegt, ignoriere Timer-Override
+                // If match is in the future, ignore timer override
                 if (scheduledAt) {
                     const now = Math.floor(Date.now() / 1000);
                     const timeUntilMatch = scheduledAt - now;
                     
                     if (timeUntilMatch > 0) {
-                        // Match liegt in der Zukunft - verwende FACEIT Timer
+                        // Match is in the future - use FACEIT timer
                         hasTimerOverride = false;
                         overrideIndicator.style.display = 'none';
 
@@ -195,16 +195,16 @@
                     }
                 }
                 
-                // Match hat bereits begonnen oder kein scheduled_at - verwende Override
+                // Match has already started or no scheduled_at - use override
                 if (data.hasOverride) {
                     hasTimerOverride = true;
                     overrideIndicator.style.display = 'block';
                     
-                    // Timer nur starten wenn noch keiner läuft oder große Differenz (Admin hat Timer geändert)
+                    // Only start timer if none is running or large difference (admin changed timer)
                     if (!timerInterval) {
                         startTimer(data.remaining);
                     } else if (Math.abs(timeLeft - data.remaining) > 10) {
-                        // Nur bei großer Differenz (>10s) neu starten - Admin hat Timer manuell geändert
+                        // Only restart on large difference (>10s) - admin manually changed timer
                         startTimer(data.remaining);
                     }
                 } else {
@@ -240,7 +240,7 @@
 
                 const data = await response.json();
                 
-                // Prüfe Timer-Override mit scheduled_at
+                // Check timer override with scheduled_at
                 await checkTimerOverride(data.scheduled_at);
                 
                 renderVeto(data);
@@ -265,10 +265,10 @@
                 
                 const data = await response.json();
                 
-                // Prüfe Timer-Override mit scheduled_at
+                // Check timer override with scheduled_at
                 await checkTimerOverride(data.scheduled_at);
                 
-                // Bei FINISHED Status immer Outro anzeigen (egal ob SHOW_VETO an oder aus)
+                // Always show outro on FINISHED status (whether SHOW_VETO is on or off)
                 if (data.status === 'FINISHED') {
                     showOutroView(data);
                     return;
@@ -290,7 +290,7 @@
             
             if (!SHOW_VETO) return;
 
-            // Map Grid wieder anzeigen, falls es vorher versteckt wurde
+            // Show map grid again if it was hidden before
             mapGrid.style.display = 'flex';
 
             const teams = [data.teams.faction1, data.teams.faction2];
@@ -307,7 +307,7 @@
             formatDisplay.textContent = `Best of ${data.best_of || '?'}`;
 
             if (!data.voting || !data.voting.map) {
-                // Kein Veto vorhanden - nutze Status-basierte Anzeige
+                // No veto available - use status-based display
                 updateStatusText(data);
                 return;
             }
@@ -320,13 +320,14 @@
             const totalActions = picks.length + bans.length;
             if (totalActions > lastVetoCount && !hasTimerOverride) {
                 lastVetoCount = totalActions;
-                // Nur Timer starten wenn noch keiner läuft
+                // Only start/restart timer if none is running or if it was the last action
+                // 3 minute timer on each new veto action
                 if (!timerInterval) {
-                    startTimer();
+                    startTimer(180);
                 }
             }
 
-            // Erstelle eine Map der bestehenden sichtbaren Karten für schnellen Zugriff
+            // Create a map of existing visible cards for quick access
             const existingCards = new Map();
             Array.from(grid.children).forEach(card => {
                 const mapName = card.querySelector('.map-name')?.textContent;
@@ -336,7 +337,7 @@
                 }
             });
 
-            // Zähle nur sichtbare Maps für Animation-Delay
+            // Count only visible maps for animation delay
             const visibleMapCount = Array.from(grid.children).filter(card => {
                 return parseFloat(window.getComputedStyle(card).opacity) > 0;
             }).length;
@@ -346,7 +347,7 @@
             const bannedMaps = [];
             
             if (bestOf === 1 && picks.length > 0) {
-                // Sammle alle Maps die nicht gepickt wurden - das sind die gebannten
+                // Collect all maps that were not picked - these are the banned ones
                 entities.forEach(map => {
                     const isPicked = picks.includes(map.guid) || picks.includes(map.class_name);
                     if (!isPicked) {
@@ -355,7 +356,7 @@
                 });
             }
 
-            // Sortiere Maps: Gepickte Karte zuletzt
+            // Sort maps: Picked map last
             const sortedMaps = [];
             const pickedMaps = [];
             
@@ -368,10 +369,10 @@
                 }
             });
             
-            // Füge gepickte Maps am Ende hinzu
+            // Add picked maps at the end
             const finalMaps = [...sortedMaps, ...pickedMaps];
 
-            let currentAnimationIndex = 0; // Zähler für neue Maps
+            let currentAnimationIndex = 0; // Counter for new maps
 
             finalMaps.forEach((map, index) => {
                 const isPicked = picks.includes(map.guid) || picks.includes(map.class_name);
@@ -382,33 +383,33 @@
                 const mapKey = map.guid || map.class_name;
                 const existingCard = existingCards.get(map.name);
                 
-                // Prüfe ob diese Map bereits im Grid existiert (auch wenn noch nicht sichtbar)
+                // Check if this map already exists in the grid (even if not visible yet)
                 const alreadyInGrid = Array.from(grid.children).some(card => 
                     card.querySelector('.map-name')?.textContent === map.name
                 );
                 
                 if (existingCard) {
-                    // Map ist bereits sichtbar - nur Klassen aktualisieren
+                    // Map is already visible - only update classes
                     existingCard.className = 'map-card';
                     if (isPicked) existingCard.classList.add('picked');
                     if (isBanned) existingCard.classList.add('banned');
                     existingCards.delete(map.name); // Markiere als verarbeitet
                 } else if (alreadyInGrid) {
-                    // Map existiert im DOM aber ist noch nicht sichtbar (Animation läuft noch)
-                    // Nichts tun - Animation läuft weiter
+                    // Map exists in DOM but is not visible yet (animation still running)
+                    // Do nothing - animation continues
                 } else {
-                    // Neue Map erstellen
+                    // Create new map
                     const card = document.createElement('div');
                     card.className = 'map-card';
                     if (isPicked) card.classList.add('picked');
                     if (isBanned) card.classList.add('banned');
                     
-                    // Neue Map: Animiere sie mit Delay basierend auf sichtbaren Maps + neue Maps davor
-                    card.style.animationDelay = `${(visibleMapCount + currentAnimationIndex) * 2}s`;
-                    currentAnimationIndex++; // Inkrementiere für nächste neue Map
+                    // New map: Animate it with delay based on visible maps + new maps before it
+                    const animationDelay = (visibleMapCount + currentAnimationIndex) * 100;
+                    currentAnimationIndex++; // Increment for next new map
                     renderedMaps.add(mapKey);
                     
-                    // Priorisierung: 1. FACEIT image_lg, 2. Lokale Bilder, 3. Placeholder
+                    // Priority: 1. FACEIT image_lg, 2. Local images, 3. Placeholder
                     const mapImg = map.image_lg || getMapImage(map.name) || `https://via.placeholder.com/150x200?text=${map.name}`;
 
                     card.innerHTML = `
@@ -420,7 +421,7 @@
                 }
             });
 
-            // Entferne Maps die nicht mehr in der Liste sind (sollte nicht passieren, aber sicherheitshalber)
+            // Remove maps that are no longer in the list (shouldn't happen, but just to be safe)
             existingCards.forEach(card => card.remove());
 
             updateStatusText(data);
@@ -447,12 +448,12 @@
             mapGrid.style.display = 'none';
             actionDisplay.textContent = "Stream starting soon...";
 
-            // Wenn kein Timer-Override aktiv ist, nutze die FACEIT-Zeit
+            // If no timer override is active, use FACEIT time
             if (!hasTimerOverride && data.scheduled_at) {
                 const now = Math.floor(Date.now() / 1000);
                 const diff = data.scheduled_at - now;
                 if (diff > 0) {
-                    // Nur Timer starten wenn noch keiner läuft
+                    // Only start timer if none is running
                     if (!timerInterval) {
                         startTimer(diff);
                     }
@@ -472,7 +473,7 @@
             const picks = data.voting.map.pick || [];
             const drops = data.voting.map.drop || [];
             
-            // Prüfe ob gepickt
+            // Check if picked
             if (picks.includes(map.guid) || picks.includes(map.class_name)) {
                 return "PICKED";
             }
@@ -497,7 +498,7 @@
         }
 
         function showOutroView(data) {
-            // Verstecke alle UI-Elemente außer Video und Partner-Bar
+            // Hide all UI elements except video and partner bar
             mapGrid.style.display = 'none';
             const header = document.querySelector('.header');
             if (header) header.style.display = 'none';
@@ -516,7 +517,7 @@
                     padding-top: 100px;
                     animation: fadeIn 1s ease;
                 `;
-                // Füge vor dem Partner-Bar ein
+                // Insert before partner bar
                 const partnerBar = document.getElementById('partnerBar');
                 if (partnerBar) {
                     document.body.insertBefore(outroContainer, partnerBar);
@@ -532,7 +533,7 @@
             const teamsSwapped = tacamIndex === 1;
             if (teamsSwapped) teams.reverse();
             
-            // Hole Scores aus den results wenn verfügbar
+            // Get scores from results if available
             let team1Score = 0;
             let team2Score = 0;
             let winnerId = null;
@@ -540,8 +541,8 @@
             if (data.results && data.results.score) {
                 const scores = data.results.score;
                 
-                // FACEIT verwendet "faction1" und "faction2" als Keys, nicht die faction_id!
-                // Wenn Teams getauscht wurden, müssen auch die Scores getauscht werden
+                // FACEIT uses "faction1" and "faction2" as keys, not the faction_id!
+                // If teams were swapped, scores must also be swapped
                 if (teamsSwapped) {
                     team1Score = scores.faction2 || 0;
                     team2Score = scores.faction1 || 0;
@@ -718,7 +719,7 @@
         function updateStatusText(data) {
             const now = Math.floor(Date.now() / 1000);
             
-            // Bei Statuswechsel Timer resetten (außer bei Manual Override)
+            // Reset timer on status change (except for manual override)
             if (lastMatchStatus !== null && lastMatchStatus !== data.status && !hasTimerOverride) {
                 clearInterval(timerInterval);
                 timerInterval = null;
@@ -756,7 +757,7 @@
                 case 'ONGOING':
                     actionDisplay.textContent = "Match is live!";
                     if (!hasTimerOverride && !isOngoingTimerRunning && !timerInterval) {
-                        // 2 Minuten Timer für FACEIT Delay (nur einmal starten)
+                        // 2 minute timer for FACEIT delay (start only once)
                         isOngoingTimerRunning = true;
                         startTimer(120);
                     }
@@ -800,6 +801,20 @@
                         }
                     } else if (data.voting && data.voting.map && data.voting.map.pick && data.voting.map.pick.length > 0) {
                         actionDisplay.textContent = "Veto finished!";
+                        // Timer nach Veto: Versuche FACEIT configured_at zu nutzen, sonst Fallback auf 3 Minuten
+                        if (!hasTimerOverride && !timerInterval) {
+                            if (data.configured_at && data.configured_at > now - 180) {
+                                // Use FACEIT's configured_at for precise timer (3 minutes from configured_at)
+                                const elapsed = now - data.configured_at;
+                                const remaining = Math.max(0, 180 - elapsed);
+                                if (remaining > 0) {
+                                    startTimer(remaining);
+                                }
+                            } else {
+                                // Fallback: Fixed 3-minute timer if no configured_at available
+                                startTimer(180);
+                            }
+                        }
                     } else {
                         actionDisplay.textContent = "Veto in progress...";
                     }

@@ -6,7 +6,7 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Funktion zum automatischen Scannen aller Videos
+// Function to automatically scan all videos
 function getVideoFiles() {
     const videosDir = path.join(__dirname, 'videos');
     try {
@@ -22,7 +22,7 @@ function getVideoFiles() {
     }
 }
 
-// Funktion zum automatischen Scannen aller Partner-Bilder
+// Function to automatically scan all partner images
 function getPartnerFiles() {
     const partnersDir = path.join(__dirname, 'partners');
     try {
@@ -32,11 +32,11 @@ function getPartnerFiles() {
         }
         const files = fs.readdirSync(partnersDir);
         return files.filter(file => {
-            // Nur Bild-Dateien
+            // Only image files
             if (!/\.(png|jpg|jpeg|gif|svg|webp)$/i.test(file)) {
                 return false;
             }
-            // TacAM Fallback-Logo ausschließen
+            // Exclude TacAM fallback logo
             if (/TacAM[_-]?logo\.png$/i.test(file)) {
                 return false;
             }
@@ -48,25 +48,25 @@ function getPartnerFiles() {
     }
 }
 
-// Middleware für JSON und statische Dateien
+// Middleware for JSON and static files
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/videos', express.static(path.join(__dirname, 'videos')));
 app.use('/partners', express.static(path.join(__dirname, 'partners')));
 
-// In-Memory-Speicher für Timer-Overrides (später kann das in eine DB ausgelagert werden)
+// In-memory storage for timer overrides (can be moved to a DB later)
 const timerOverrides = {};
 
-// In-Memory-Speicher für Veto-Overrides pro Match
+// In-memory storage for veto overrides per match
 const vetoOverrides = {};
 
-// Timestamps für automatisches Cleanup nach 12 Stunden
+// Timestamps for automatic cleanup after 12 hours
 const matchTimestamps = {};
 
-// Cleanup-Funktion: Entfernt Match-Daten die älter als 12 Stunden sind
+// Cleanup function: Removes match data older than 12 hours
 function cleanupOldMatches() {
     const now = Date.now();
-    const maxAge = 12 * 60 * 60 * 1000; // 12 Stunden in Millisekunden
+    const maxAge = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
     
     let deletedCount = 0;
     
@@ -86,13 +86,13 @@ function cleanupOldMatches() {
     }
 }
 
-// Cleanup alle Stunde ausführen
-setInterval(cleanupOldMatches, 60 * 60 * 1000); // Jede Stunde
-// Cleanup auch beim Start ausführen
+// Run cleanup every hour
+setInterval(cleanupOldMatches, 60 * 60 * 1000); // Every hour
+// Also run cleanup at startup
 cleanupOldMatches();
 console.log('[Cleanup] Auto-cleanup enabled (removes matches older than 12 hours)');
 
-// Middleware für Basic Authentication (nur für Admin-Seiten)
+// Middleware for Basic Authentication (only for admin pages)
 function requireAuth(req, res, next) {
     const authHeader = req.headers.authorization;
     
@@ -116,9 +116,9 @@ function requireAuth(req, res, next) {
     }
 }
 
-// API-Endpunkt: Config abrufen (für Client)
+// API endpoint: Get config (for client)
 app.get('/api/config', (req, res) => {
-    // Default showVeto auf true, außer explizit auf 'false' gesetzt
+    // Default showVeto to true, unless explicitly set to 'false'
     const showVeto = process.env.SHOW_VETO === 'false' ? false : true;
     res.json({
         apiKey: process.env.FACEIT_API_KEY || '',
@@ -129,16 +129,16 @@ app.get('/api/config', (req, res) => {
     });
 });
 
-// API-Endpunkt: Config mit Match-spezifischer Veto-Einstellung abrufen
+// API endpoint: Get config with match-specific veto setting
 app.get('/api/config/:matchId', (req, res) => {
     const { matchId } = req.params;
     
-    // Setze Timestamp wenn Match zum ersten Mal abgerufen wird
+    // Set timestamp when match is accessed for the first time
     if (!matchTimestamps[matchId]) {
         matchTimestamps[matchId] = Date.now();
     }
     
-    // Default showVeto auf true, außer explizit auf 'false' gesetzt
+    // Default showVeto to true, unless explicitly set to 'false'
     const baseShowVeto = process.env.SHOW_VETO === 'false' ? false : true;
     const showVeto = vetoOverrides[matchId] !== undefined ? vetoOverrides[matchId] : baseShowVeto;
     
@@ -151,7 +151,7 @@ app.get('/api/config/:matchId', (req, res) => {
     });
 });
 
-// API-Endpunkt: Veto-Einstellung setzen (geschützt)
+// API endpoint: Set veto setting (protected)
 app.post('/api/veto/:matchId', requireAuth, (req, res) => {
     const { matchId } = req.params;
     const { showVeto } = req.body;
@@ -161,14 +161,14 @@ app.post('/api/veto/:matchId', requireAuth, (req, res) => {
     }
     
     vetoOverrides[matchId] = Boolean(showVeto);
-    matchTimestamps[matchId] = Date.now(); // Timestamp für Cleanup
+    matchTimestamps[matchId] = Date.now(); // Timestamp for cleanup
     res.json({ success: true, matchId, showVeto: vetoOverrides[matchId] });
 });
 
-// API-Endpunkt: Veto-Einstellung abrufen
+// API endpoint: Get veto setting
 app.get('/api/veto/:matchId', (req, res) => {
     const { matchId } = req.params;
-    // Default showVeto auf true, außer explizit auf 'false' gesetzt
+    // Default showVeto to true, unless explicitly set to 'false'
     const baseShowVeto = process.env.SHOW_VETO === 'false' ? false : true;
     const showVeto = vetoOverrides[matchId] !== undefined ? vetoOverrides[matchId] : baseShowVeto;
     
@@ -178,14 +178,14 @@ app.get('/api/veto/:matchId', (req, res) => {
     });
 });
 
-// API-Endpunkt: Veto-Einstellung zurücksetzen (geschützt)
+// API endpoint: Reset veto setting (protected)
 app.delete('/api/veto/:matchId', requireAuth, (req, res) => {
     const { matchId } = req.params;
     delete vetoOverrides[matchId];
     res.json({ success: true });
 });
 
-// API-Endpunkt: Timer-Override setzen (geschützt)
+// API endpoint: Set timer override (protected)
 app.post('/api/timer/:matchId', requireAuth, (req, res) => {
     const { matchId } = req.params;
     const { duration } = req.body;
@@ -198,12 +198,12 @@ app.post('/api/timer/:matchId', requireAuth, (req, res) => {
         duration: parseInt(duration),
         timestamp: Date.now()
     };
-    matchTimestamps[matchId] = Date.now(); // Timestamp für Cleanup
+    matchTimestamps[matchId] = Date.now(); // Timestamp for cleanup
     
     res.json({ success: true, matchId, duration: parseInt(duration) });
 });
 
-// API-Endpunkt: Timer-Override abrufen
+// API endpoint: Get timer override
 app.get('/api/timer/:matchId', (req, res) => {
     const { matchId } = req.params;
     const override = timerOverrides[matchId];
@@ -212,7 +212,7 @@ app.get('/api/timer/:matchId', (req, res) => {
         return res.json({ hasOverride: false });
     }
     
-    // Berechne verbleibende Zeit
+    // Calculate remaining time
     const elapsed = Math.floor((Date.now() - override.timestamp) / 1000);
     const remaining = Math.max(0, override.duration - elapsed);
     
@@ -224,23 +224,23 @@ app.get('/api/timer/:matchId', (req, res) => {
     });
 });
 
-// API-Endpunkt: Timer-Override löschen (geschützt)
+// API endpoint: Delete timer override (protected)
 app.delete('/api/timer/:matchId', requireAuth, (req, res) => {
     const { matchId } = req.params;
     delete timerOverrides[matchId];
     res.json({ success: true });
 });
 
-// Admin-Interface (geschützt)
+// Admin interface (protected)
 app.get('/admin', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// Outro-Seite für Match-Ende (Score und Dankesnachricht)
+// Outro page for match end (score and thank you message)
 app.get('/outro/:matchId', (req, res) => {
     const { matchId } = req.params;
     
-    // Prüfe ob es eine Match ID ist (FACEIT Format: 1-GUID)
+    // Check if it's a match ID (FACEIT format: 1-GUID)
     if (matchId.match(/^1-[a-f0-9-]+$/i)) {
         res.sendFile(path.join(__dirname, 'public', 'outro.html'));
     } else {
@@ -248,11 +248,11 @@ app.get('/outro/:matchId', (req, res) => {
     }
 });
 
-// Route für Viewer-Seiten (Match ID als URL-Parameter)
+// Route for viewer pages (Match ID as URL parameter)
 app.get('/:matchId', (req, res) => {
     const { matchId } = req.params;
     
-    // Prüfe ob es eine Match ID ist (FACEIT Format: 1-GUID)
+    // Check if it's a match ID (FACEIT format: 1-GUID)
     if (matchId.match(/^1-[a-f0-9-]+$/i)) {
         res.sendFile(path.join(__dirname, 'public', 'viewer.html'));
     } else {
@@ -260,7 +260,7 @@ app.get('/:matchId', (req, res) => {
     }
 });
 
-// Fallback zur Startseite
+// Fallback to homepage
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
