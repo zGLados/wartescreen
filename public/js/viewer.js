@@ -290,8 +290,10 @@
             
             if (!SHOW_VETO) return;
 
-            // Show map grid again if it was hidden before
-            mapGrid.style.display = 'flex';
+            // Show map grid again if it was hidden before (prevents animation reset)
+            if (mapGrid.style.display === 'none') {
+                mapGrid.style.display = 'flex';
+            }
 
             const teams = [data.teams.faction1, data.teams.faction2];
             const tacamIndex = teams.findIndex(t => t.name.toLowerCase().includes("tacam"));
@@ -720,6 +722,7 @@
             const now = Math.floor(Date.now() / 1000);
             
             // Reset timer on status change (except for manual override)
+            // IMPORTANT: Don't reset renderedMaps to prevent re-animating maps
             if (lastMatchStatus !== null && lastMatchStatus !== data.status && !hasTimerOverride) {
                 clearInterval(timerInterval);
                 timerInterval = null;
