@@ -37,6 +37,7 @@
         let isOngoingTimerRunning = false;
         let renderedMaps = new Set(); // Track already rendered maps
         let lastMatchStatus = null; // Track status changes
+        let mapGridInitialized = false; // Track if map grid was shown once
         
         const grid = document.getElementById('mapGrid');
         const timerDisplay = document.getElementById('timer');
@@ -290,9 +291,10 @@
             
             if (!SHOW_VETO) return;
 
-            // Show map grid again if it was hidden before (prevents animation reset)
-            if (mapGrid.style.display === 'none') {
+            // Show map grid on first veto render only (prevents animation reset)
+            if (!mapGridInitialized) {
                 mapGrid.style.display = 'flex';
+                mapGridInitialized = true;
             }
 
             const teams = [data.teams.faction1, data.teams.faction2];
@@ -407,7 +409,7 @@
                     if (isBanned) card.classList.add('banned');
                     
                     // New map: Animate it with delay based on visible maps + new maps before it
-                    const animationDelay = (visibleMapCount + currentAnimationIndex) * 100;
+                    card.style.animationDelay = `${(visibleMapCount + currentAnimationIndex) * 2}s`;
                     currentAnimationIndex++; // Increment for next new map
                     renderedMaps.add(mapKey);
                     
