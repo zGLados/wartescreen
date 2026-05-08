@@ -786,7 +786,7 @@
                 <div class="outro-score-container">
                     <div class="outro-team">
                         <div class="outro-team-logo">
-                            <img src="${teams[0].avatar || 'https://via.placeholder.com/150'}" alt="${teams[0].name}">
+                            <img src="${teams[0].avatar || '/logo_T_default.png'}" alt="${teams[0].name}">
                         </div>
                         <div class="outro-team-name outro-team-name-home">${teams[0].name}</div>
                         <div class="outro-team-score">${team1Score}</div>
