@@ -5,6 +5,7 @@
     --accent-red: #c83737;
     --ban-red: #ff4d4d;
     --pick-green: #2ecc71;
+    --decider-gold: #f39c12;
     --text-color: #ffffff;
 }
 
@@ -187,15 +188,24 @@ body {
     box-shadow: 0 0 18px var(--pick-green);
 }
 
+.map-card.decider {
+    border-color: var(--decider-gold);
+    transform: scale(1.05);
+    box-shadow: 0 0 20px var(--decider-gold);
+}
+
 .status-label {
     position: absolute;
     top: 5px;
     left: 5px;
     z-index: 4;
-    font-size: 0.7rem;
-    padding: 2px 6px;
+    font-size: 0.65rem;
+    font-weight: bold;
+    padding: 3px 8px;
     border-radius: 4px;
-    background: rgba(0,0,0,0.8);
+    background: rgba(0,0,0,0.85);
+    white-space: nowrap;
+    text-transform: uppercase;
 }
 
 .match-info-header {

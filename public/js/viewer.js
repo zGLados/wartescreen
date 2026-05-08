@@ -354,45 +354,82 @@
                 return parseFloat(window.getComputedStyle(card).opacity) > 0;
             }).length;
 
-            // Bei BO1: Alle nicht-gepickten Maps sind gebannt
+            // Sort maps based on veto process and create veto order
             const bestOf = data.best_of || 1;
-            const bannedMaps = [];
+            const totalMaps = entities.length;
             
-            if (bestOf === 1 && picks.length > 0) {
-                // Collect all maps that were not picked - these are the banned ones
-                entities.forEach(map => {
-                    const isPicked = picks.includes(map.guid) || picks.includes(map.class_name);
-                    if (!isPicked) {
-                        bannedMaps.push(map);
-                    }
-                });
+            // Define standard veto patterns based on best_of
+            let vetoPattern = [];
+            if (bestOf === 1) {
+                // BO1: Ban, Ban, Ban, Ban, Ban, Ban, Pick
+                vetoPattern = Array(totalMaps - 1).fill('BAN').concat(['PICK']);
+            } else if (bestOf === 3) {
+                // BO3: Ban, Ban, Pick, Pick, Ban, Ban, Decider
+                vetoPattern = ['BAN', 'BAN', 'PICK', 'PICK', 'BAN', 'BAN', 'DECIDER'];
+            } else if (bestOf === 5) {
+                // BO5: Ban, Ban, Pick, Pick, Pick, Pick, Ban, Ban, Decider (if 9 maps)
+                vetoPattern = ['BAN', 'BAN', 'PICK', 'PICK', 'PICK', 'PICK', 'BAN', 'BAN', 'DECIDER'];
             }
-
-            // Sort maps: Picked map last
-            const sortedMaps = [];
+            
+            // Categorize maps
+            const bannedMaps = [];
             const pickedMaps = [];
+            let deciderMap = null;
             
             entities.forEach((map) => {
-                const isPicked = picks.includes(map.guid) || picks.includes(map.class_name);
-                if (isPicked) {
+                const mapId = map.guid || map.class_name;
+                const isPicked = picks.includes(mapId);
+                const isBanned = bans.includes(mapId);
+                
+                if (isBanned) {
+                    bannedMaps.push(map);
+                } else if (isPicked) {
                     pickedMaps.push(map);
                 } else {
-                    sortedMaps.push(map);
+                    // Check if this could be the decider (BO3/BO5 only)
+                    if (bestOf > 1 && picks.length + bans.length === totalMaps - 1) {
+                        deciderMap = map;
+                    } else if (bestOf === 1 && picks.length > 0) {
+                        // Bei BO1: Alle nicht-gepickten Maps sind implizit gebannt
+                        bannedMaps.push(map);
+                    }
                 }
             });
             
-            // Add picked maps at the end
-            const finalMaps = [...sortedMaps, ...pickedMaps];
+            // Sort picked maps in order they appear in picks array (veto order)
+            pickedMaps.sort((a, b) => {
+                const aId = a.guid || a.class_name;
+                const bId = b.guid || b.class_name;
+                return picks.indexOf(aId) - picks.indexOf(bId);
+            });
+            
+            // Reconstruct map order based on veto pattern
+            const finalMaps = [];
+            let banIndex = 0;
+            let pickIndex = 0;
+            
+            vetoPattern.forEach(action => {
+                if (action === 'BAN' && banIndex < bannedMaps.length) {
+                    finalMaps.push(bannedMaps[banIndex++]);
+                } else if (action === 'PICK' && pickIndex < pickedMaps.length) {
+                    finalMaps.push(pickedMaps[pickIndex++]);
+                } else if (action === 'DECIDER' && deciderMap) {
+                    finalMaps.push(deciderMap);
+                }
+            });
 
             let currentAnimationIndex = 0; // Counter for new maps
 
             finalMaps.forEach((map, index) => {
-                const isPicked = picks.includes(map.guid) || picks.includes(map.class_name);
-                const isBanned = (bestOf === 1 && !isPicked) || 
-                                 bans.includes(map.guid) || 
-                                 bans.includes(map.class_name);
+                const mapId = map.guid || map.class_name;
+                const isPicked = picks.includes(mapId);
+                const isBanned = (bestOf === 1 && !isPicked) || bans.includes(mapId);
                 
-                const mapKey = map.guid || map.class_name;
+                // Check if this is the decider map (BO3/BO5 only)
+                const isDecider = !isPicked && !isBanned && bestOf > 1 && 
+                                  (picks.length + bans.length === entities.length - 1);
+                
+                const mapKey = mapId;
                 const existingCard = existingCards.get(map.name);
                 
                 // Check if this map already exists in the grid (even if not visible yet)
@@ -401,10 +438,18 @@
                 );
                 
                 if (existingCard) {
-                    // Map is already visible - only update classes
+                    // Map is already visible - only update classes and label
                     existingCard.className = 'map-card';
                     if (isPicked) existingCard.classList.add('picked');
                     if (isBanned) existingCard.classList.add('banned');
+                    if (isDecider) existingCard.classList.add('decider');
+                    
+                    // Update status label
+                    const statusLabel = existingCard.querySelector('.status-label');
+                    if (statusLabel) {
+                        statusLabel.textContent = getStatusLabel(map, data, index, team1Data.name, team2Data.name);
+                    }
+                    
                     existingCards.delete(map.name); // Markiere als verarbeitet
                 } else if (alreadyInGrid) {
                     // Map exists in DOM but is not visible yet (animation still running)
@@ -415,6 +460,7 @@
                     card.className = 'map-card';
                     if (isPicked) card.classList.add('picked');
                     if (isBanned) card.classList.add('banned');
+                    if (isDecider) card.classList.add('decider');
                     
                     // New map: Animate it with delay based on visible maps + new maps before it
                     card.style.animationDelay = `${(visibleMapCount + currentAnimationIndex) * 2}s`;
@@ -426,7 +472,7 @@
 
                     card.innerHTML = `
                         <img src="${mapImg}" alt="${map.name}" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x200?text=${map.name}';">
-                        <div class="status-label">${getStatusLabel(map, data, bannedMaps)}</div>
+                        <div class="status-label">${getStatusLabel(map, data, index, team1Data.name, team2Data.name)}</div>
                         <div class="map-name">${map.name}</div>
                     `;
                     grid.appendChild(card);
@@ -481,28 +527,49 @@
             }
         }
 
-        function getStatusLabel(map, data, bannedMaps = []) {
-            const picks = data.voting.map.pick || [];
-            const drops = data.voting.map.drop || [];
+        function getVetoLabel(vetoIndex, action, bestOf, team1Name, team2Name) {
+            // Determine which team performs the action based on standard veto order
+            // Team 1 always starts, then alternates
+            const isTeam1 = (vetoIndex % 2 === 0);
+            const teamName = isTeam1 ? team1Name : team2Name;
             
-            // Check if picked
-            if (picks.includes(map.guid) || picks.includes(map.class_name)) {
-                return "PICKED";
+            if (action === 'DECIDER') {
+                return 'DECIDER';
             }
             
-            // Wenn explizite Bans vorhanden sind oder bei BO1 alle nicht-gepickten Maps
-            if (drops.includes(map.guid) || drops.includes(map.class_name)) {
-                return "BANNED";
+            return `${teamName} ${action}`;
+        }
+
+        function getStatusLabel(map, data, vetoIndex, team1Name, team2Name) {
+            const picks = data.voting.map.pick || [];
+            const drops = data.voting.map.drop || [];
+            const bestOf = data.best_of || 1;
+            const mapId = map.guid || map.class_name;
+            
+            // Check if picked
+            if (picks.includes(mapId)) {
+                return getVetoLabel(vetoIndex, 'PICK', bestOf, team1Name, team2Name);
+            }
+            
+            // Check if explicitly banned
+            if (drops.includes(mapId)) {
+                return getVetoLabel(vetoIndex, 'BAN', bestOf, team1Name, team2Name);
             }
             
             // Bei BO1: Alle nicht-gepickten Maps sind gebannt
-            const bestOf = data.best_of || 1;
-            if (bestOf === 1 && bannedMaps.length > 0) {
-                const isBanned = bannedMaps.some(m => 
-                    m.guid === map.guid || m.class_name === map.class_name
-                );
-                if (isBanned) {
-                    return "BANNED";
+            if (bestOf === 1 && picks.length > 0) {
+                return getVetoLabel(vetoIndex, 'BAN', bestOf, team1Name, team2Name);
+            }
+            
+            // Bei BO3/BO5: Remaining map ist der Decider (if veto is complete)
+            if (bestOf > 1) {
+                // Decider map is the one remaining after bans and picks
+                const totalVetoed = picks.length + drops.length;
+                const totalMaps = data.voting.map.entities.length;
+                
+                // If veto process is complete (all but one map vetoed), remaining is decider
+                if (totalVetoed === totalMaps - 1) {
+                    return 'DECIDER';
                 }
             }
             
