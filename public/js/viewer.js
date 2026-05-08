@@ -305,7 +305,7 @@
             team1Display.textContent = team1Data.name;
             team2Display.textContent = team2Data.name;
             team1Logo.src = team1Data.avatar || 'https://via.placeholder.com/100?text=' + encodeURIComponent(team1Data.name);
-            team2Logo.src = team2Data.avatar || 'https://via.placeholder.com/100?text=' + encodeURIComponent(team2Data.name);
+            team2Logo.src = team2Data.avatar || '/logo_T_default.png';
 
             leagueDisplay.textContent = data.competition_name || "FACEIT Match";
             formatDisplay.textContent = `Best of ${data.best_of || '?'}`;
@@ -444,7 +444,7 @@
             team1Display.textContent = team1Data.name;
             team2Display.textContent = team2Data.name;
             team1Logo.src = team1Data.avatar || `https://via.placeholder.com/100?text=${encodeURIComponent(team1Data.name)}`;
-            team2Logo.src = team2Data.avatar || `https://via.placeholder.com/100?text=${encodeURIComponent(team2Data.name)}`;
+            team2Logo.src = team2Data.avatar || '/logo_T_default.png';
             
             leagueDisplay.textContent = data.competition_name || "FACEIT Match";
             formatDisplay.textContent = `Best of ${data.best_of || '?'}`;
@@ -704,7 +704,7 @@
 
                     <div class="outro-team">
                         <div class="outro-team-logo">
-                            <img src="${teams[1].avatar || 'https://via.placeholder.com/150'}" alt="${teams[1].name}">
+                            <img src="${teams[1].avatar || '/logo_T_default.png'}" alt="${teams[1].name}">
                         </div>
                         <div class="outro-team-name outro-team-name-away">${teams[1].name}</div>
                         <div class="outro-team-score">${team2Score}</div>
