@@ -46,6 +46,14 @@
         const team2Display = document.getElementById('team2Name');
         const team1Logo = document.getElementById('team1Logo');
         const team2Logo = document.getElementById('team2Logo');
+        
+        // Fallback for team2 logo if image fails to load
+        team2Logo.onerror = function() {
+            if (this.src !== window.location.origin + '/logo_T_default.png') {
+                this.src = '/logo_T_default.png';
+            }
+        };
+        
         const leagueDisplay = document.getElementById('league-name');
         const formatDisplay = document.getElementById('match-format');
         const mapGrid = document.getElementById('mapGrid');
