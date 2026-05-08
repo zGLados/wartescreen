@@ -307,6 +307,13 @@
 
             const teams = [data.teams.faction1, data.teams.faction2];
             const tacamIndex = teams.findIndex(t => t.name.toLowerCase().includes("tacam"));
+            
+            // Track which team is which FACEIT faction (for veto order)
+            // In FACEIT, faction1 always starts veto, regardless of which team it is
+            const originalFaction1 = data.teams.faction1;
+            const originalFaction2 = data.teams.faction2;
+            
+            // Sort teams for display (TacAM always left/home)
             if (tacamIndex === 1) teams.reverse();
             const [team1Data, team2Data] = teams;
 
@@ -447,7 +454,7 @@
                     // Update status label
                     const statusLabel = existingCard.querySelector('.status-label');
                     if (statusLabel) {
-                        statusLabel.textContent = getStatusLabel(map, data, index, team1Data.name, team2Data.name);
+                        statusLabel.textContent = getStatusLabel(map, data, index, originalFaction1, originalFaction2, team1Data, team2Data);
                     }
                     
                     existingCards.delete(map.name); // Markiere als verarbeitet
@@ -472,7 +479,7 @@
 
                     card.innerHTML = `
                         <img src="${mapImg}" alt="${map.name}" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x200?text=${map.name}';">
-                        <div class="status-label">${getStatusLabel(map, data, index, team1Data.name, team2Data.name)}</div>
+                        <div class="status-label">${getStatusLabel(map, data, index, originalFaction1, originalFaction2, team1Data, team2Data)}</div>
                         <div class="map-name">${map.name}</div>
                     `;
                     grid.appendChild(card);
@@ -527,20 +534,31 @@
             }
         }
 
-        function getVetoLabel(vetoIndex, action, bestOf, team1Name, team2Name) {
-            // Determine which team performs the action based on standard veto order
-            // Team 1 always starts, then alternates
-            const isTeam1 = (vetoIndex % 2 === 0);
-            const teamName = isTeam1 ? team1Name : team2Name;
+        function getVetoLabel(vetoIndex, action, bestOf, originalFaction1, originalFaction2, team1Data, team2Data) {
+            // In FACEIT, faction1 always starts veto (vetoIndex 0, 2, 4, ...)
+            // faction2 goes second (vetoIndex 1, 3, 5, ...)
+            // We need to map this to the display names (team1 = home/left, team2 = away/right)
             
             if (action === 'DECIDER') {
                 return 'DECIDER';
             }
             
+            // Determine which FACEIT faction is performing this veto action
+            const isFaction1Turn = (vetoIndex % 2 === 0);
+            const actingFaction = isFaction1Turn ? originalFaction1 : originalFaction2;
+            
+            // Get the display name for this faction
+            let teamName;
+            if (actingFaction.faction_id === team1Data.faction_id) {
+                teamName = team1Data.name;
+            } else {
+                teamName = team2Data.name;
+            }
+            
             return `${teamName} ${action}`;
         }
 
-        function getStatusLabel(map, data, vetoIndex, team1Name, team2Name) {
+        function getStatusLabel(map, data, vetoIndex, originalFaction1, originalFaction2, team1Data, team2Data) {
             const picks = data.voting.map.pick || [];
             const drops = data.voting.map.drop || [];
             const bestOf = data.best_of || 1;
@@ -548,17 +566,17 @@
             
             // Check if picked
             if (picks.includes(mapId)) {
-                return getVetoLabel(vetoIndex, 'PICK', bestOf, team1Name, team2Name);
+                return getVetoLabel(vetoIndex, 'PICK', bestOf, originalFaction1, originalFaction2, team1Data, team2Data);
             }
             
             // Check if explicitly banned
             if (drops.includes(mapId)) {
-                return getVetoLabel(vetoIndex, 'BAN', bestOf, team1Name, team2Name);
+                return getVetoLabel(vetoIndex, 'BAN', bestOf, originalFaction1, originalFaction2, team1Data, team2Data);
             }
             
             // Bei BO1: Alle nicht-gepickten Maps sind gebannt
             if (bestOf === 1 && picks.length > 0) {
-                return getVetoLabel(vetoIndex, 'BAN', bestOf, team1Name, team2Name);
+                return getVetoLabel(vetoIndex, 'BAN', bestOf, originalFaction1, originalFaction2, team1Data, team2Data);
             }
             
             // Bei BO3/BO5: Remaining map ist der Decider (if veto is complete)
