@@ -22,8 +22,7 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy application files
 COPY server.js ./
 COPY public ./public
-# Videos werden via volume gemountet (nicht kopiert)
-COPY partners ./partners
+# Videos and partners are mounted via volumes (not copied)
 
 # Create a non-root user
 RUN addgroup -g 1001 -S nodejs && \

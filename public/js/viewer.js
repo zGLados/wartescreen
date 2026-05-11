@@ -185,6 +185,24 @@
             videoElement.play().catch(e => console.log("Video Autoplay failed:", e));
         }
 
+        async function checkTechDifficulties() {
+            try {
+                const response = await fetch(`/api/tech-difficulties/${MATCH_ID}`);
+                const data = await response.json();
+                
+                const overlay = document.getElementById('tech-difficulties-overlay');
+                if (overlay) {
+                    if (data.active) {
+                        overlay.style.display = 'flex';
+                    } else {
+                        overlay.style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Tech Difficulties Check Error:', error);
+            }
+        }
+
         async function checkTimerOverride(scheduledAt) {
             try {
                 const response = await fetch(`/api/timer/${MATCH_ID}`);
@@ -226,6 +244,9 @@
         }
 
         async function fetchMatchData() {
+            // Check for tech difficulties overlay
+            await checkTechDifficulties();
+            
             if (!SHOW_VETO) {
                 await fetchAndRenderSimpleCountdown();
                 return;
@@ -260,6 +281,9 @@
         }
 
         async function fetchAndRenderSimpleCountdown() {
+            // Check for tech difficulties overlay
+            await checkTechDifficulties();
+            
             if (!MATCH_ID || !API_KEY) {
                 actionDisplay.textContent = "Error: Match ID or API Key is missing!";
                 return;

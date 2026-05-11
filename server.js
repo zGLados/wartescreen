@@ -24,7 +24,7 @@ function getVideoFiles() {
 
 // Function to automatically scan all partner images
 function getPartnerFiles() {
-    const partnersDir = path.join(__dirname, 'partners');
+    const partnersDir = path.join(__dirname, 'public', 'partners');
     try {
         if (!fs.existsSync(partnersDir)) {
             console.warn('Partners directory not found');
@@ -52,13 +52,15 @@ function getPartnerFiles() {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/videos', express.static(path.join(__dirname, 'videos')));
-app.use('/partners', express.static(path.join(__dirname, 'partners')));
 
 // In-memory storage for timer overrides (can be moved to a DB later)
 const timerOverrides = {};
 
 // In-memory storage for veto overrides per match
 const vetoOverrides = {};
+
+// In-memory storage for tech difficulties overlay per match
+const techDifficulties = {};
 
 // Timestamps for automatic cleanup after 12 hours
 const matchTimestamps = {};
@@ -75,6 +77,7 @@ function cleanupOldMatches() {
         if (age > maxAge) {
             delete timerOverrides[matchId];
             delete vetoOverrides[matchId];
+            delete techDifficulties[matchId];
             delete matchTimestamps[matchId];
             deletedCount++;
             console.log(`[Cleanup] Deleted old match data for: ${matchId} (age: ${Math.round(age / 3600000)}h)`);
@@ -229,6 +232,27 @@ app.delete('/api/timer/:matchId', requireAuth, (req, res) => {
     const { matchId } = req.params;
     delete timerOverrides[matchId];
     res.json({ success: true });
+});
+
+// API endpoint: Set tech difficulties overlay (protected)
+app.post('/api/tech-difficulties/:matchId', requireAuth, (req, res) => {
+    const { matchId } = req.params;
+    const { active } = req.body;
+    
+    if (active === undefined) {
+        return res.status(400).json({ error: 'Missing active parameter' });
+    }
+    
+    techDifficulties[matchId] = Boolean(active);
+    matchTimestamps[matchId] = Date.now();
+    res.json({ success: true, matchId, active: techDifficulties[matchId] });
+});
+
+// API endpoint: Get tech difficulties overlay status
+app.get('/api/tech-difficulties/:matchId', (req, res) => {
+    const { matchId } = req.params;
+    const active = techDifficulties[matchId] || false;
+    res.json({ active });
 });
 
 // Admin interface (protected)

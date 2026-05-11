@@ -310,6 +310,27 @@
         </div>
 
         <div class="card">
+            <h2 class="section-title">Technical Difficulties Overlay</h2>
+            
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="techDiffCheckbox" onchange="updateTechDiffPreview()" style="margin-right: 10px;">
+                    Show Technical Difficulties Screen
+                </label>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
+                    Enabled = Technical pause/interruption screen is shown<br>
+                    Disabled = Normal match display
+                </p>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-danger" onclick="toggleTechDifficulties()">Toggle Technical Pause</button>
+            </div>
+
+            <div id="techDiffStatusMessage" class="status-message"></div>
+        </div>
+
+        <div class="card">
             <h2 class="section-title">Pick/Ban Anzeige (Veto)</h2>
             
             <div class="form-group">
@@ -614,6 +635,87 @@
 
             setTimeout(() => {
                 vetoStatusMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // Tech Difficulties Functions
+        const techDiffCheckbox = document.getElementById('techDiffCheckbox');
+        const techDiffStatusMessage = document.getElementById('techDiffStatusMessage');
+
+        matchIdInput.addEventListener('input', () => {
+            updateViewerLink();
+            loadVetoSetting();
+            loadTechDifficulties();
+        });
+
+        async function loadTechDifficulties() {
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+            
+            if (!matchId || !matchId.match(/^1-[a-f0-9-]+$/i)) {
+                techDiffCheckbox.checked = false;
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/tech-difficulties/${matchId}`);
+                const data = await response.json();
+                techDiffCheckbox.checked = data.active;
+            } catch (error) {
+                console.error('Error loading tech difficulties status:', error);
+                techDiffCheckbox.checked = false;
+            }
+        }
+
+        function updateTechDiffPreview() {
+            // Optional: Preview logic
+        }
+
+        async function toggleTechDifficulties() {
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+
+            if (!matchId) {
+                showTechDiffStatus('Please enter Match ID or FACEIT Link!', 'error');
+                return;
+            }
+
+            if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
+                showTechDiffStatus('Invalid Match ID! Format: 1-abc-... or valid FACEIT Link', 'error');
+                return;
+            }
+
+            const active = techDiffCheckbox.checked;
+
+            try {
+                const response = await fetch(`/api/tech-difficulties/${matchId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ active })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showTechDiffStatus(`✓ Technical Difficulties ${active ? 'ENABLED' : 'DISABLED'}!`, 'success');
+                } else {
+                    showTechDiffStatus('Error toggling technical difficulties', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showTechDiffStatus('Connection error: ' + error.message, 'error');
+            }
+        }
+
+        function showTechDiffStatus(message, type) {
+            techDiffStatusMessage.textContent = message;
+            techDiffStatusMessage.className = `status-message status-${type}`;
+            techDiffStatusMessage.style.display = 'block';
+
+            setTimeout(() => {
+                techDiffStatusMessage.style.display = 'none';
             }, 5000);
         }
 

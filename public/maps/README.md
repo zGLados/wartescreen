@@ -1,8 +1,8 @@
 # CS2 Map Images
 
-Dieser Ordner enthält die Map-Vorschaubilder für das Veto-System.
+This folder contains map preview images for the veto system.
 
-## Vorhandene Maps:
+## Available Maps:
 
 - ✅ Ancient (`CS2_de_ancient.png`)
 - ✅ Anubis (`CS2_de_anubis.png`)
@@ -12,8 +12,8 @@ Dieser Ordner enthält die Map-Vorschaubilder für das Veto-System.
 - ✅ Nuke (`CS2_de_nuke.png`)
 - ✅ Overpass (`CS2_de_overpass.png`)
 
-## Hinweis:
+## Note:
 
-Falls FACEIT keine Map-Bilder liefert, werden automatisch diese lokalen Bilder als Fallback verwendet.
+If FACEIT doesn't provide map images, these local images are automatically used as fallback.
 
-Format: `.png` oder `.jpg`, empfohlene Größe: 150x200px oder höher
+Format: `.png` or `.jpg`, recommended size: 150x200px or higher

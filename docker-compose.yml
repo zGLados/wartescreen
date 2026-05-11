@@ -18,14 +18,14 @@ services:
       - REFRESH_INTERVAL=${REFRESH_INTERVAL:-5000}
       - YOUTUBE_PLAYLIST_URL=${YOUTUBE_PLAYLIST_URL}
     volumes:
-      # Mount videos directory (optional - Fallback für lokale Videos)
+      # Mount videos directory (optional - fallback for local videos)
       - ./videos:/app/videos:ro
-      # Mount sponsors directory for sponsor logos
-      - ./public/sponsors:/app/public/sponsors:ro
+      # Mount partners directory for partner/sponsor logos
+      - ./public/partners:/app/public/partners:ro
     networks:
       - wartescreen-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
       timeout: 3s
       retries: 3
