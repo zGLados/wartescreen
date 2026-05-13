@@ -162,7 +162,7 @@ Only background video and partner logos. Perfect for transitions or as a placeho
 ```
 http://localhost:3000/brb.html
 ```
-Displays "BE RIGHT BACK" message with waving hand emoji. Use when taking short breaks during stream.
+Displays "BE RIGHT BACK" message. Use when taking short breaks during stream.
 
 **OBS Setup**: Add as Browser Source (1920x1080), switch between scenes as needed.
 
