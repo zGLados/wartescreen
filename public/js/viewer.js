@@ -392,8 +392,8 @@
             // Define standard veto patterns based on best_of
             let vetoPattern = [];
             if (bestOf === 1) {
-                // BO1: Ban, Ban, Ban, Ban, Ban, Ban, Pick
-                vetoPattern = Array(totalMaps - 1).fill('BAN').concat(['PICK']);
+                // BO1: Ban, Ban, Ban, Ban, Ban, Ban, Decider
+                vetoPattern = Array(totalMaps - 1).fill('BAN').concat(['DECIDER']);
             } else if (bestOf === 3) {
                 // BO3: Ban, Ban, Pick, Pick, Ban, Ban, Decider
                 vetoPattern = ['BAN', 'BAN', 'PICK', 'PICK', 'BAN', 'BAN', 'DECIDER'];
@@ -417,11 +417,12 @@
                 } else if (isPicked) {
                     pickedMaps.push(map);
                 } else {
-                    // Check if this could be the decider (BO3/BO5 only)
-                    if (bestOf > 1 && picks.length + bans.length === totalMaps - 1) {
+                    // Check if this could be the decider
+                    if (picks.length + bans.length === totalMaps - 1) {
+                        // Letzte verbleibende Map ist immer der Decider (BO1, BO3, BO5)
                         deciderMap = map;
                     } else if (bestOf === 1 && picks.length > 0) {
-                        // Bei BO1: Alle nicht-gepickten Maps sind implizit gebannt
+                        // Bei BO1: Alle nicht-gepickten Maps (außer Decider) sind implizit gebannt
                         bannedMaps.push(map);
                     }
                 }
@@ -456,8 +457,8 @@
                 const isPicked = picks.includes(mapId);
                 const isBanned = (bestOf === 1 && !isPicked) || bans.includes(mapId);
                 
-                // Check if this is the decider map (BO3/BO5 only)
-                const isDecider = !isPicked && !isBanned && bestOf > 1 && 
+                // Check if this is the decider map (last remaining map in veto process)
+                const isDecider = !isPicked && !isBanned && 
                                   (picks.length + bans.length === entities.length - 1);
                 
                 const mapKey = mapId;
