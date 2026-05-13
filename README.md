@@ -11,6 +11,7 @@ Professional waiting screen for FACEIT CS2 matches with map veto display, countd
 - **Map Veto Animations**: Smooth 2s staggered ban/pick reveals
 - **Match Outro**: Final scores, winner badge, and match summary
 - **Partner Logos**: Display sponsor logos at bottom (auto-detected)
+- **OBS-Ready Pages**: Technical break (`/pause.html`) and clean screen (`/clean.html`)
 - **CS2 Map Images**: Local map previews for all active duty maps
 - **Background Videos**: Random playback with shuffle logic
 - **Live Updates**: Refreshes every 5 seconds
@@ -135,6 +136,30 @@ Viewer auto-adapts to match status:
 - **Veto Phase**: Animated ban/pick display
 - **Finished**: Outro with scores and winner
 
+## 🎬 OBS Pages
+
+Ready-to-use pages for OBS Browser Sources:
+
+### Match Viewer
+```
+http://localhost:3000/1-{match-id}
+```
+Full match display with teams, timer, veto, and outro.
+
+### Technical Break
+```
+http://localhost:3000/pause.html
+```
+Displays "TECHNICAL BREAK" message with animated spinner. Use for technical pauses or interruptions.
+
+### Clean Screen
+```
+http://localhost:3000/clean.html
+```
+Only background video and partner logos. Perfect for transitions or as a placeholder scene.
+
+**OBS Setup**: Add as Browser Source (1920x1080), switch between scenes as needed.
+
 ## 📁 Project Structure
 
 ```
@@ -146,7 +171,8 @@ wartescreen/
 │   ├── partners/              # Partner logos (see partners/README.md)
 │   ├── admin.html            # Admin interface
 │   ├── viewer.html           # Match viewer
-│   ├── pause.html            # Technical break screen
+│   ├── pause.html            # Technical break screen (OBS)
+│   ├── clean.html            # Clean background screen (OBS)
 │   └── index.html            # Landing page
 ├── videos/                    # Background videos (auto-detected)
 ├── server.js                  # Express server
