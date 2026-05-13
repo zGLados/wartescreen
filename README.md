@@ -11,7 +11,7 @@ Professional waiting screen for FACEIT CS2 matches with map veto display, countd
 - **Map Veto Animations**: Smooth 2s staggered ban/pick reveals
 - **Match Outro**: Final scores, winner badge, and match summary
 - **Partner Logos**: Display sponsor logos at bottom (auto-detected)
-- **OBS-Ready Pages**: Technical break (`/pause.html`) and clean screen (`/clean.html`)
+- **OBS-Ready Pages**: Technical break (`/pause.html`), clean screen (`/clean.html`), and BRB (`/brb.html`)
 - **CS2 Map Images**: Local map previews for all active duty maps
 - **Background Videos**: Random playback with shuffle logic
 - **Live Updates**: Refreshes every 5 seconds
@@ -158,6 +158,12 @@ http://localhost:3000/clean.html
 ```
 Only background video and partner logos. Perfect for transitions or as a placeholder scene.
 
+### Be Right Back
+```
+http://localhost:3000/brb.html
+```
+Displays "BE RIGHT BACK" message with waving hand emoji. Use when taking short breaks during stream.
+
 **OBS Setup**: Add as Browser Source (1920x1080), switch between scenes as needed.
 
 ## 📁 Project Structure
@@ -172,6 +178,7 @@ wartescreen/
 │   ├── admin.html            # Admin interface
 │   ├── viewer.html           # Match viewer
 │   ├── pause.html            # Technical break screen (OBS)
+│   ├── brb.html              # Be Right Back screen (OBS)
 │   ├── clean.html            # Clean background screen (OBS)
 │   └── index.html            # Landing page
 ├── videos/                    # Background videos (auto-detected)

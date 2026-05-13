@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Be Right Back</title>
+    <link rel="stylesheet" href="/css/viewer.css">
+    <style>
+        /* Additional styles for BRB screen */
+        .brb-content {
+            text-align: center;
+            z-index: 10;
+            animation: slideIn 0.6s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .brb-icon {
+            font-size: 8rem;
+            margin-bottom: 30px;
+            animation: wave 2s ease-in-out infinite;
+        }
+
+        @keyframes wave {
+            0%, 100% {
+                transform: rotate(0deg);
+            }
+            25% {
+                transform: rotate(-15deg);
+            }
+            75% {
+                transform: rotate(15deg);
+            }
+        }
+
+        .brb-title {
+            font-size: 5rem;
+            font-weight: 900;
+            color: var(--accent-red);
+            text-transform: uppercase;
+            letter-spacing: 12px;
+            margin: 0 0 20px 0;
+            text-shadow: 0 0 40px rgba(200, 55, 55, 0.6);
+        }
+
+        .brb-subtitle {
+            font-size: 1.8rem;
+            color: var(--text-color);
+            margin: 0 0 15px 0;
+            font-weight: 300;
+            opacity: 0.9;
+        }
+
+        .brb-text {
+            font-size: 1.3rem;
+            color: #aaa;
+            margin: 0;
+            font-weight: 300;
+        }
+    </style>
+</head>
+<body>
+    <div id="bg-video-container">
+        <video id="bg-video-local" muted playsinline style="display: none;"></video>
+    </div>
+
+    <div class="brb-content">
+        <div class="brb-icon">👋</div>
+        <h1 class="brb-title">BE RIGHT BACK</h1>
+        <p class="brb-subtitle">Taking a short break</p>
+        <p class="brb-text">Stream continues shortly</p>
+    </div>
+
+    <!-- Partner-Leiste -->
+    <div class="partner-bar" id="partnerBar">
+        <!-- Fallback: TacAM Logo wenn keine anderen Partners -->
+        <img src="/partners/TacAM_logo.png" class="partner-logo partner-fallback" alt="TacAM" id="tacamFallback">
+    </div>
+
+    <script>
+        // Load configuration from server
+        let VIDEO_FILES = [];
+        let PARTNER_FILES = [];
+
+        // Load config from server
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                VIDEO_FILES = config.videoFiles;
+                PARTNER_FILES = config.partnerFiles || [];
+                
+                // Initialize after loading config
+                initApp();
+            } catch (error) {
+                console.error('Failed to load config:', error);
+                // Fallback to default values
+                initApp();
+            }
+        }
+
+        let currentVideoIndex = 0;
+
+        function initBackgroundVideo() {
+            if (VIDEO_FILES && VIDEO_FILES.length > 0) {
+                initLocalVideos();
+            }
+        }
+
+        // Load and display partner logos
+        function initPartners() {
+            const partnerBar = document.getElementById('partnerBar');
+            const fallbackLogo = document.getElementById('tacamFallback');
+            
+            if (PARTNER_FILES && PARTNER_FILES.length > 0) {
+                // Real partner logos available - remove fallback
+                if (fallbackLogo) {
+                    fallbackLogo.remove();
+                }
+                
+                // Insert partner logos
+                PARTNER_FILES.forEach(file => {
+                    const img = document.createElement('img');
+                    img.src = `/partners/${file}`;
+                    img.className = 'partner-logo';
+                    img.alt = 'Partner';
+                    img.onerror = () => {
+                        console.error('Failed to load partner logo:', file);
+                        img.style.display = 'none';
+                    };
+                    partnerBar.appendChild(img);
+                });
+            }
+            // If no partner logos, fallback logo remains visible
+        }
+
+        // Initialize local videos
+        function initLocalVideos() {
+            const videoElement = document.getElementById('bg-video-local');
+            videoElement.style.display = 'block';
+            
+            if (videoElement && VIDEO_FILES.length > 0) {
+                // Random start video
+                currentVideoIndex = Math.floor(Math.random() * VIDEO_FILES.length);
+                
+                videoElement.onended = () => {
+                    // Choose another random video (not the same)
+                    if (VIDEO_FILES.length > 1) {
+                        let newIndex;
+                        do {
+                            newIndex = Math.floor(Math.random() * VIDEO_FILES.length);
+                        } while (newIndex === currentVideoIndex);
+                        currentVideoIndex = newIndex;
+                    }
+                    playNextLocalVideo();
+                };
+                playNextLocalVideo();
+            }
+        }
+
+        function playNextLocalVideo() {
+            const videoElement = document.getElementById('bg-video-local');
+            if (!videoElement) return;
+            videoElement.src = `/videos/${VIDEO_FILES[currentVideoIndex]}`;
+            videoElement.play().catch(e => console.log("Video Autoplay failed:", e));
+        }
+
+        // App initialisieren (wird nach Config-Laden aufgerufen)
+        function initApp() {
+            initBackgroundVideo();
+            initPartners();
+        }
+
+        // Config laden und App starten
+        loadConfig();
+    </script>
+</body>
+</html>
