@@ -348,12 +348,12 @@
             const originalFaction1 = data.teams.faction1;
             const originalFaction2 = data.teams.faction2;
             
-            // Auto-detect which team starts veto from API data
-            detectVetoStartSide(data, team1Data, team2Data);
-            
             // Sort teams for display (TacAM always left/home)
             if (tacamIndex === 1) teams.reverse();
             const [team1Data, team2Data] = teams;
+            
+            // Auto-detect which team starts veto from API data
+            detectVetoStartSide(data, team1Data, team2Data);
 
             team1Display.textContent = team1Data.name;
             team2Display.textContent = team2Data.name;
