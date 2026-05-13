@@ -4,6 +4,7 @@
         let REFRESH_INTERVAL = 5000;
         let VIDEO_FILES = [];
         let PARTNER_FILES = [];
+        let VETO_START_SIDE = 'left'; // 'left' or 'right' - which team starts veto (auto-detected from API)
 
         // Extract Match ID from URL
         const MATCH_ID = window.location.pathname.slice(1); // Remove leading "/"
@@ -20,6 +21,16 @@
                 VIDEO_FILES = config.videoFiles;
                 PARTNER_FILES = config.partnerFiles || [];
                 
+                // Check if veto start side was manually set by admin
+                if (config.vetoStartSide && config.vetoStartSide !== 'auto') {
+                    VETO_START_SIDE = config.vetoStartSide;
+                    hasManualVetoStartSide = true;
+                } else {
+                    // Will be auto-detected from API data
+                    VETO_START_SIDE = 'left';
+                    hasManualVetoStartSide = false;
+                }
+                
                 // Initialize after loading config
                 initApp();
             } catch (error) {
@@ -33,6 +44,7 @@
         let timerInterval;
         let lastVetoCount = -1;
         let hasTimerOverride = false;
+        let hasManualVetoStartSide = false; // Track if admin manually set veto start side
         let zeroTimerTimeout = null;
         let isOngoingTimerRunning = false;
         let renderedMaps = new Set(); // Track already rendered maps
@@ -333,9 +345,11 @@
             const tacamIndex = teams.findIndex(t => t.name.toLowerCase().includes("tacam"));
             
             // Track which team is which FACEIT faction (for veto order)
-            // In FACEIT, faction1 always starts veto, regardless of which team it is
             const originalFaction1 = data.teams.faction1;
             const originalFaction2 = data.teams.faction2;
+            
+            // Auto-detect which team starts veto from API data
+            detectVetoStartSide(data, team1Data, team2Data);
             
             // Sort teams for display (TacAM always left/home)
             if (tacamIndex === 1) teams.reverse();
@@ -419,10 +433,10 @@
                 } else {
                     // Check if this could be the decider
                     if (picks.length + bans.length === totalMaps - 1) {
-                        // Letzte verbleibende Map ist immer der Decider (BO1, BO3, BO5)
+                        // Last remaining map is always the decider (BO1, BO3, BO5)
                         deciderMap = map;
                     } else if (bestOf === 1 && picks.length > 0) {
-                        // Bei BO1: Alle nicht-gepickten Maps (außer Decider) sind implizit gebannt
+                        // For BO1: All non-picked maps (except decider) are implicitly banned
                         bannedMaps.push(map);
                     }
                 }
@@ -559,6 +573,30 @@
             }
         }
 
+        // Auto-detect which display team (left/right) starts the veto process
+        function detectVetoStartSide(data, team1Data, team2Data) {
+            // Skip if admin has manually set the veto start side
+            if (hasManualVetoStartSide) {
+                return; // Keep the manual override from admin
+            }
+            
+            if (!data.teams || !data.teams.faction1 || !data.teams.faction2) {
+                VETO_START_SIDE = 'left'; // Default
+                return;
+            }
+            
+            // In FACEIT, faction1 ALWAYS starts the veto process
+            // We just need to determine if faction1 is displayed on the left or right
+            const faction1 = data.teams.faction1;
+            
+            // Check if faction1 is the left display team (team1Data)
+            if (faction1.faction_id === team1Data.faction_id) {
+                VETO_START_SIDE = 'left';  // faction1 = left team -> left starts
+            } else {
+                VETO_START_SIDE = 'right'; // faction1 = right team -> right starts
+            }
+        }
+
         function getVetoLabel(vetoIndex, action, bestOf, originalFaction1, originalFaction2, team1Data, team2Data) {
             // In FACEIT, faction1 always starts veto (vetoIndex 0, 2, 4, ...)
             // faction2 goes second (vetoIndex 1, 3, 5, ...)
@@ -580,6 +618,17 @@
                 teamName = team2Data.name;
             }
             
+            // IMPORTANT: If VETO_START_SIDE === 'right', invert the display
+            // This means: When faction1 vetos, we show it as the right team (if right is selected)
+            if (VETO_START_SIDE === 'right') {
+                // Invert team assignment
+                if (actingFaction.faction_id === team1Data.faction_id) {
+                    teamName = team2Data.name;
+                } else {
+                    teamName = team1Data.name;
+                }
+            }
+            
             return `${teamName} ${action}`;
         }
 
@@ -599,12 +648,12 @@
                 return getVetoLabel(vetoIndex, 'BAN', bestOf, originalFaction1, originalFaction2, team1Data, team2Data);
             }
             
-            // Bei BO1: Alle nicht-gepickten Maps sind gebannt
+            // For BO1: All non-picked maps are banned
             if (bestOf === 1 && picks.length > 0) {
                 return getVetoLabel(vetoIndex, 'BAN', bestOf, originalFaction1, originalFaction2, team1Data, team2Data);
             }
             
-            // Bei BO3/BO5: Remaining map ist der Decider (if veto is complete)
+            // For BO3/BO5: Remaining map is the decider (if veto is complete)
             if (bestOf > 1) {
                 // Decider map is the one remaining after bans and picks
                 const totalVetoed = picks.length + drops.length;

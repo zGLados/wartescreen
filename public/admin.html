@@ -354,6 +354,40 @@
         </div>
 
         <div class="card">
+            <h2 class="section-title">Veto Start Order</h2>
+            
+            <div class="form-group">
+                <label>Which team starts the Veto (Pick/Ban)?</label>
+                <div style="margin-top: 15px;">
+                    <label class="checkbox-label" style="margin-bottom: 10px;">
+                        <input type="radio" name="vetoStart" id="vetoStartAuto" value="auto" style="margin-right: 10px;" checked>
+                        Auto-detect from API (Recommended)
+                    </label>
+                    <label class="checkbox-label" style="margin-bottom: 10px;">
+                        <input type="radio" name="vetoStart" id="vetoStartLeft" value="left" style="margin-right: 10px;">
+                        Force Left Team (Home) to start first
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="radio" name="vetoStart" id="vetoStartRight" value="right" style="margin-right: 10px;">
+                        Force Right Team (Away) to start first
+                    </label>
+                </div>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
+                    This controls which team picks/bans first in the veto process.<br>
+                    <strong>Auto (Default):</strong> Automatically detects from FACEIT API data<br>
+                    <strong>Force:</strong> Manually override the API detection
+                </p>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-success" onclick="saveVetoStart()">Save Veto Start Order</button>
+                <button class="btn btn-danger" onclick="resetVetoStart()">Reset to Auto-Detect</button>
+            </div>
+
+            <div id="vetoStartStatusMessage" class="status-message"></div>
+        </div>
+
+        <div class="card">
             <h2 class="section-title">Instructions</h2>
             <div class="info-box">
                 <p><strong>1.</strong> Enter Match ID (Format: 1-GUID)</p>
@@ -646,6 +680,7 @@
             updateViewerLink();
             loadVetoSetting();
             loadTechDifficulties();
+            loadVetoStart();
         });
 
         async function loadTechDifficulties() {
@@ -716,6 +751,132 @@
 
             setTimeout(() => {
                 techDiffStatusMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // Veto Start Order Functions
+        const vetoStartAuto = document.getElementById('vetoStartAuto');
+        const vetoStartLeft = document.getElementById('vetoStartLeft');
+        const vetoStartRight = document.getElementById('vetoStartRight');
+        const vetoStartStatusMessage = document.getElementById('vetoStartStatusMessage');
+
+        async function loadVetoStart() {
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+            
+            if (!matchId || !matchId.match(/^1-[a-f0-9-]+$/i)) {
+                vetoStartAuto.checked = true; // Default
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/veto-start/${matchId}`);
+                const data = await response.json();
+                
+                if (data.vetoStartSide === 'left') {
+                    vetoStartLeft.checked = true;
+                } else if (data.vetoStartSide === 'right') {
+                    vetoStartRight.checked = true;
+                } else {
+                    vetoStartAuto.checked = true;
+                }
+            } catch (error) {
+                console.error('Error loading veto start setting:', error);
+                vetoStartAuto.checked = true; // Default on error
+            }
+        }
+
+        async function saveVetoStart() {
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+
+            if (!matchId) {
+                showVetoStartStatus('Please enter Match ID or FACEIT Link!', 'error');
+                return;
+            }
+
+            if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
+                showVetoStartStatus('Invalid Match ID! Format: 1-abc-... or valid FACEIT Link', 'error');
+                return;
+            }
+
+            let side = 'auto';
+            if (vetoStartLeft.checked) {
+                side = 'left';
+            } else if (vetoStartRight.checked) {
+                side = 'right';
+            }
+
+            try {
+                const response = await fetch(`/api/veto-start/${matchId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ side })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    let message;
+                    if (side === 'auto') {
+                        message = '✓ Veto start order set: Auto-detect from API';
+                    } else if (side === 'left') {
+                        message = '✓ Veto start order set: Left Team (Home) starts first';
+                    } else {
+                        message = '✓ Veto start order set: Right Team (Away) starts first';
+                    }
+                    showVetoStartStatus(message, 'success');
+                } else {
+                    showVetoStartStatus('Error saving veto start order', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showVetoStartStatus('Connection error: ' + error.message, 'error');
+            }
+        }
+
+        async function resetVetoStart() {
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+
+            if (!matchId) {
+                showVetoStartStatus('Please enter Match ID or FACEIT Link!', 'error');
+                return;
+            }
+
+            if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
+                showVetoStartStatus('Invalid Match ID! Format: 1-abc-... or valid FACEIT Link', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/veto-start/${matchId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showVetoStartStatus('✓ Veto start order reset to Auto-detect!', 'success');
+                    await loadVetoStart(); // Reload default
+                } else {
+                    showVetoStartStatus('Error resetting veto start order', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showVetoStartStatus('Connection error: ' + error.message, 'error');
+            }
+        }
+
+        function showVetoStartStatus(message, type) {
+            vetoStartStatusMessage.textContent = message;
+            vetoStartStatusMessage.className = `status-message status-${type}`;
+            vetoStartStatusMessage.style.display = 'block';
+
+            setTimeout(() => {
+                vetoStartStatusMessage.style.display = 'none';
             }, 5000);
         }
 

@@ -59,6 +59,10 @@ const timerOverrides = {};
 // In-memory storage for veto overrides per match
 const vetoOverrides = {};
 
+// In-memory storage for veto start side per match ('left', 'right', or 'auto')
+// 'left' = left team starts, 'right' = right team starts, 'auto' = auto-detect from API
+const vetoStartOverrides = {};
+
 // In-memory storage for tech difficulties overlay per match
 const techDifficulties = {};
 
@@ -77,6 +81,7 @@ function cleanupOldMatches() {
         if (age > maxAge) {
             delete timerOverrides[matchId];
             delete vetoOverrides[matchId];
+            delete vetoStartOverrides[matchId];
             delete techDifficulties[matchId];
             delete matchTimestamps[matchId];
             deletedCount++;
@@ -145,11 +150,15 @@ app.get('/api/config/:matchId', (req, res) => {
     const baseShowVeto = process.env.SHOW_VETO === 'false' ? false : true;
     const showVeto = vetoOverrides[matchId] !== undefined ? vetoOverrides[matchId] : baseShowVeto;
     
+    // Default: 'auto' - automatically detect from API which team starts veto
+    const vetoStartSide = vetoStartOverrides[matchId] || 'auto';
+    
     res.json({
         apiKey: process.env.FACEIT_API_KEY || '',
         videoFiles: getVideoFiles(),
         partnerFiles: getPartnerFiles(),
         showVeto: showVeto,
+        vetoStartSide: vetoStartSide,
         refreshInterval: parseInt(process.env.REFRESH_INTERVAL) || 5000
     });
 });
@@ -185,6 +194,38 @@ app.get('/api/veto/:matchId', (req, res) => {
 app.delete('/api/veto/:matchId', requireAuth, (req, res) => {
     const { matchId } = req.params;
     delete vetoOverrides[matchId];
+    res.json({ success: true });
+});
+
+// API endpoint: Set veto start side (protected)
+app.post('/api/veto-start/:matchId', requireAuth, (req, res) => {
+    const { matchId } = req.params;
+    const { side } = req.body;
+    
+    if (!side || (side !== 'left' && side !== 'right' && side !== 'auto')) {
+        return res.status(400).json({ error: 'Invalid side parameter. Must be "left", "right", or "auto"' });
+    }
+    
+    vetoStartOverrides[matchId] = side;
+    matchTimestamps[matchId] = Date.now();
+    res.json({ success: true, matchId, vetoStartSide: side });
+});
+
+// API endpoint: Get veto start side
+app.get('/api/veto-start/:matchId', (req, res) => {
+    const { matchId } = req.params;
+    const vetoStartSide = vetoStartOverrides[matchId] || 'auto';
+    
+    res.json({
+        vetoStartSide: vetoStartSide,
+        isOverride: vetoStartOverrides[matchId] !== undefined
+    });
+});
+
+// API endpoint: Reset veto start side (protected)
+app.delete('/api/veto-start/:matchId', requireAuth, (req, res) => {
+    const { matchId } = req.params;
+    delete vetoStartOverrides[matchId];
     res.json({ success: true });
 });
 
