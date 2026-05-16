@@ -124,6 +124,16 @@ function requireAuth(req, res, next) {
     }
 }
 
+// API endpoint: Get available videos
+app.get('/api/videos', (req, res) => {
+    res.json(getVideoFiles());
+});
+
+// API endpoint: Get available partner logos
+app.get('/api/partners', (req, res) => {
+    res.json(getPartnerFiles());
+});
+
 // API endpoint: Get config (for client)
 app.get('/api/config', (req, res) => {
     // Default showVeto to true, unless explicitly set to 'false'
