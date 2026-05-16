@@ -1,21 +1,11 @@
-// Player to Watch Configuration
+// Player to Watch - Single Player Configuration
 const FACEIT_API_KEY = '84e84dc8-0f8a-4497-85ff-5d282933a213';
-const REFRESH_INTERVAL = 20000; // 20 seconds per player
 const LEAGUE_KEYWORDS = ['esea', 'open', 'season', 's57', 'league', 'division', 'championship'];
 const TEAM_ID = '905ca82f-1391-4a44-9840-601455a6b75e'; // TacAM Team ID
 
-const PLAYERS = [
-    { id: 'cLn395', displayName: 'cLn' },
-    { id: 'Bravo1911', displayName: 'Bravo' },
-    { id: 'Aindrew', displayName: 'Aindrew' },
-    { id: 'Henzzik', displayName: 'Henzzik' },
-    { id: 'Fucs2i', displayName: 'Fucsii' }
-];
+// PLAYER_ID and PLAYER_NAME are set in the HTML file inline script
 
-let currentPlayerIndex = 0;
-let playerInterval = null;
-
-// Video Management (similar to viewer.js)
+// Video Management
 let currentVideoIndex = 0;
 const videoElement = document.getElementById('bg-video-local');
 
@@ -46,7 +36,7 @@ async function playNextVideo() {
 
 videoElement.addEventListener('ended', playNextVideo);
 
-// Partner Logos (similar to viewer.js)
+// Partner Logos
 async function loadPartnerLogos() {
     try {
         const response = await fetch('/api/partners');
@@ -83,18 +73,46 @@ async function loadPartnerLogos() {
     }
 }
 
-// Check if match is a league match
-function isLeagueMatch(match) {
-    const compName = (match.competition_name || '').toLowerCase();
-    const compType = match.competition_type || '';
-    
-    // Check if competition name contains league keywords
-    const hasLeagueKeyword = LEAGUE_KEYWORDS.some(keyword => compName.includes(keyword));
-    
-    // Competition type is championship (league matches)
-    const isChampionship = compType === 'championship';
-    
-    return hasLeagueKeyword || isChampionship;
+// Fetch team match history from FACEIT API
+async function fetchTeamMatches() {
+    const headers = {
+        'Authorization': `Bearer ${FACEIT_API_KEY}`,
+        'Accept': 'application/json'
+    };
+
+    try {
+        // First get team info to verify team exists
+        const teamResponse = await fetch(`https://open.faceit.com/data/v4/teams/${TEAM_ID}`, { headers });
+        if (!teamResponse.ok) {
+            console.error('Failed to fetch team info, status:', teamResponse.status);
+            return [];
+        }
+        
+        // Now fetch match history using correct endpoint
+        const matchResponse = await fetch(`https://open.faceit.com/data/v4/teams/${TEAM_ID}/stats/cs2`, { headers });
+        if (!matchResponse.ok) {
+            console.error('Failed to fetch team stats, status:', matchResponse.status);
+            // Try alternative: get matches from championships
+            const champResponse = await fetch(`https://open.faceit.com/data/v4/championships?game=cs2&offset=0&limit=20`, { headers });
+            if (champResponse.ok) {
+                const champData = await champResponse.json();
+                console.log('Championships:', champData);
+            }
+            return [];
+        }
+        
+        const statsData = await matchResponse.json();
+        console.log('Team stats data:', statsData);
+        
+        // Extract matches from stats data
+        const matches = statsData.segments || statsData.matches || [];
+        console.log('Team matches fetched:', matches.length);
+        
+        return matches;
+    } catch (error) {
+        console.error('Error fetching team matches:', error);
+        return [];
+    }
 }
 
 // Fetch player data from FACEIT API
@@ -127,35 +145,6 @@ async function fetchPlayerData(playerId) {
     } catch (error) {
         console.error('Error fetching player data:', error);
         return null;
-    }
-}
-
-// Fetch team match history from FACEIT API
-async function fetchTeamMatches() {
-    const headers = {
-        'Authorization': `Bearer ${FACEIT_API_KEY}`,
-        'Accept': 'application/json'
-    };
-
-    try {
-        // Fetch team's match history - use stats endpoint
-        const response = await fetch(`https://open.faceit.com/data/v4/teams/${TEAM_ID}/stats/cs2`, { headers });
-        if (!response.ok) throw new Error('Failed to fetch team stats');
-        const statsData = await response.json();
-        
-        // Now fetch match history
-        const matchResponse = await fetch(`https://open.faceit.com/data/v4/teams/${TEAM_ID}/matches?type=past&offset=0&limit=100`, { headers });
-        if (!matchResponse.ok) {
-            console.error('Failed to fetch team match history');
-            return [];
-        }
-        const matchData = await matchResponse.json();
-        
-        console.log('Team matches fetched:', matchData.items?.length || 0);
-        return matchData.items || [];
-    } catch (error) {
-        console.error('Error fetching team matches:', error);
-        return [];
     }
 }
 
@@ -329,7 +318,7 @@ async function calculateStats(playerId) {
 }
 
 // Display player stats
-async function displayPlayer(playerConfig) {
+async function displayPlayer(playerId, playerName) {
     const playerNameEl = document.getElementById('playerName');
     const playerAvatarEl = document.getElementById('playerAvatar');
     const stat1 = document.getElementById('stat1');
@@ -345,7 +334,7 @@ async function displayPlayer(playerConfig) {
     stat4.querySelector('.stat-value').textContent = '-';
 
     // Fetch and calculate stats
-    const stats = await calculateStats(playerConfig.id);
+    const stats = await calculateStats(playerId);
     
     if (!stats) {
         playerNameEl.textContent = 'ERROR';
@@ -354,24 +343,16 @@ async function displayPlayer(playerConfig) {
     }
 
     // Update UI
-    playerNameEl.textContent = playerConfig.displayName.toUpperCase();
+    playerNameEl.textContent = playerName.toUpperCase();
     playerAvatarEl.src = stats.player.avatar || '/logo_T_default.png';
-    playerAvatarEl.alt = playerConfig.displayName;
+    playerAvatarEl.alt = playerName;
 
     stat1.querySelector('.stat-value').textContent = `${stats.mvps}`;
     stat2.querySelector('.stat-value').textContent = stats.avgKills;
     stat3.querySelector('.stat-value').textContent = `${stats.winrate}%`;
     stat4.querySelector('.stat-value').textContent = stats.kd;
 
-    console.log(`Displayed stats for ${playerConfig.displayName}:`, stats);
-}
-
-// Rotate through players
-function rotatePlayer() {
-    const playerConfig = PLAYERS[currentPlayerIndex];
-    displayPlayer(playerConfig);
-    
-    currentPlayerIndex = (currentPlayerIndex + 1) % PLAYERS.length;
+    console.log(`Displayed stats for ${playerName}:`, stats);
 }
 
 // Initialize
@@ -382,11 +363,12 @@ async function init() {
     // Start video playback
     await playNextVideo();
     
-    // Display first player immediately
-    rotatePlayer();
-    
-    // Rotate players every REFRESH_INTERVAL
-    playerInterval = setInterval(rotatePlayer, REFRESH_INTERVAL);
+    // Display player stats (PLAYER_ID and PLAYER_NAME are set in HTML)
+    if (typeof PLAYER_ID !== 'undefined' && typeof PLAYER_NAME !== 'undefined') {
+        displayPlayer(PLAYER_ID, PLAYER_NAME);
+    } else {
+        console.error('PLAYER_ID or PLAYER_NAME not defined!');
+    }
 }
 
 // Start when page loads
