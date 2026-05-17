@@ -210,12 +210,18 @@
                     }
                 });
                 
-                // Only start playing if page is visible
-                if (!document.hidden) {
-                    playNextLocalVideo();
-                } else {
-                    console.log('[Video] Page hidden on load - delaying video start');
-                }
+                // Start playing (works in OBS and normal browsers)
+                playNextLocalVideo();
+                console.log('[Video] Starting video (visibility:', document.hidden ? 'hidden' : 'visible', ')');
+                
+                // Fallback: If video hasn't started after 5 seconds, force start
+                // This helps with OBS Browser Sources and edge cases
+                setTimeout(() => {
+                    if (videoElement.paused && !isLoadingVideo) {
+                        console.warn('[Video] Fallback: forcing video start');
+                        playNextLocalVideo();
+                    }
+                }, 5000);
             }
         }
 

@@ -213,22 +213,18 @@ async function init() {
     videoFiles = await getVideoFiles();
     console.log(`[Video] Loaded ${videoFiles.length} videos`);
     
-    // Start video playback ONLY if page is visible
+    // Start video playback (works in OBS and normal browsers)
     if (videoFiles.length > 0) {
-        if (!document.hidden) {
-            await playNextVideo();
-            console.log('[Video] Page visible - starting video');
-        } else {
-            console.log('[Video] Page hidden on load - waiting for visibility');
-            // Video will start when page becomes visible (via visibilitychange listener)
-            document.addEventListener('visibilitychange', function onVisible() {
-                if (!document.hidden && videoFiles.length > 0 && !isLoadingVideo) {
-                    document.removeEventListener('visibilitychange', onVisible);
-                    playNextVideo();
-                    console.log('[Video] Page now visible - starting video');
-                }
-            });
-        }
+        playNextVideo();
+        console.log('[Video] Starting video (visibility:', document.hidden ? 'hidden' : 'visible', ')');
+        
+        // Fallback: If video hasn't started after 5 seconds, force start
+        setTimeout(() => {
+            if (videoElement.paused && !isLoadingVideo) {
+                console.warn('[Video] Fallback: forcing video start');
+                playNextVideo();
+            }
+        }, 5000);
     }
     
     // Display player stats (PLAYER_ID and PLAYER_NAME are set in HTML)

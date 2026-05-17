@@ -211,12 +211,17 @@
                     }
                 });
                 
-                // Only start if page visible
-                if (!document.hidden) {
-                    playNextLocalVideo();
-                } else {
-                    console.log('[Video] Page hidden - delaying start');
-                }
+                // Start video immediately (works in OBS and normal browsers)
+                playNextLocalVideo();
+                console.log('[Video] Starting video (visibility:', document.hidden ? 'hidden' : 'visible', ')');
+                
+                // Fallback: If video hasn't started after 5 seconds, force start
+                setTimeout(() => {
+                    if (videoElement.paused && !isLoadingVideo) {
+                        console.warn('[Video] Fallback: forcing video start');
+                        playNextLocalVideo();
+                    }
+                }, 5000);
             }
         }
 

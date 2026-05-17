@@ -89,6 +89,9 @@
             videoElement.style.display = 'block';
             
             if (videoElement && VIDEO_FILES.length > 0) {
+                // Ensure muted for autoplay
+                videoElement.muted = true;
+                
                 // Random start video
                 currentVideoIndex = Math.floor(Math.random() * VIDEO_FILES.length);
                 
@@ -99,7 +102,7 @@
                     setTimeout(playNextLocalVideo, 1000);
                 });
                 
-                // Page Visibility API: Only load videos when page is visible
+                // Page Visibility API: Pause videos when tab is hidden (saves bandwidth)
                 document.addEventListener('visibilitychange', () => {
                     if (document.hidden) {
                         videoElement.pause();
@@ -114,12 +117,17 @@
                     }
                 });
                 
-                // Only start playing if page is visible
-                if (!document.hidden) {
-                    playNextLocalVideo();
-                } else {
-                    console.log('[Video] Page hidden on load - delaying video start');
-                }
+                // Start video immediately (works in OBS and normal browsers)
+                playNextLocalVideo();
+                console.log('[Video] Starting video (visibility:', document.hidden ? 'hidden' : 'visible', ')');
+                
+                // Fallback: If video hasn't started after 5 seconds, force start
+                setTimeout(() => {
+                    if (videoElement.paused && !isLoadingVideo) {
+                        console.warn('[Video] Fallback: forcing video start');
+                        playNextLocalVideo();
+                    }
+                }, 5000);
             }
         }
 
