@@ -8,7 +8,7 @@
 </head>
 <body>
     <div id="bg-video-container">
-        <video id="bg-video-local" muted playsinline preload="metadata" poster="" style="display: none;"></video>
+        <video id="bg-video-local" muted playsinline preload="auto" poster="" style="display: none;"></video>
     </div>
 
     <!-- Partner-Leiste -->
@@ -22,20 +22,27 @@
         let VIDEO_FILES = [];
         let PARTNER_FILES = [];
 
-        // Load config from server
+        // Load config from server (use a dummy match ID for clean screen)
         async function loadConfig() {
             try {
-                const response = await fetch('/api/config');
-                const config = await response.json();
+                // Fetch videos and partners separately
+                const [videosRes, partnersRes] = await Promise.all([
+                    fetch('/api/videos'),
+                    fetch('/api/partners')
+                ]);
                 
-                VIDEO_FILES = config.videoFiles;
-                PARTNER_FILES = config.partnerFiles || [];
+                VIDEO_FILES = await videosRes.json();
+                PARTNER_FILES = await partnersRes.json();
+                
+                console.log('[Clean] Loaded', VIDEO_FILES.length, 'videos');
                 
                 // Initialize after loading config
                 initApp();
             } catch (error) {
                 console.error('Failed to load config:', error);
-                // Fallback to default values
+                // Fallback to empty arrays
+                VIDEO_FILES = [];
+                PARTNER_FILES = [];
                 initApp();
             }
         }
@@ -91,7 +98,28 @@
                     isLoadingVideo = false;
                     setTimeout(playNextLocalVideo, 1000);
                 });
-                playNextLocalVideo();
+                
+                // Page Visibility API: Only load videos when page is visible
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) {
+                        videoElement.pause();
+                        console.log('[Video] Page hidden - paused video');
+                    } else {
+                        if (!isLoadingVideo && videoElement.paused) {
+                            videoElement.play().catch(err => {
+                                console.log('[Video] Resume failed:', err);
+                            });
+                            console.log('[Video] Page visible - resumed video');
+                        }
+                    }
+                });
+                
+                // Only start playing if page is visible
+                if (!document.hidden) {
+                    playNextLocalVideo();
+                } else {
+                    console.log('[Video] Page hidden on load - delaying video start');
+                }
             }
         }
 
@@ -111,29 +139,54 @@
             }
             
             isLoadingVideo = true;
+            let loadingTimeout = null;
+            let hasStartedPlaying = false;
             
             // Clear old source
             videoElement.pause();
             videoElement.removeAttribute('src');
             videoElement.load();
             
-            // Set new video source
-            videoElement.src = `/videos/${VIDEO_FILES[currentVideoIndex]}`;
+            // Set new video source (URL-encode the filename)
+            const videoFileName = encodeURIComponent(VIDEO_FILES[currentVideoIndex]);
+            videoElement.src = `/videos/${videoFileName}`;
+            videoElement.preload = 'auto';
             
-            // Wait for video to be ready
-            videoElement.addEventListener('canplay', function onCanPlay() {
-                videoElement.removeEventListener('canplay', onCanPlay);
+            // Function to start playback
+            const startPlayback = () => {
+                if (hasStartedPlaying) return;
+                hasStartedPlaying = true;
+                
+                if (loadingTimeout) clearTimeout(loadingTimeout);
+                
                 videoElement.play().catch(err => {
                     console.log('Autoplay prevented:', err);
                     isLoadingVideo = false;
                 });
                 isLoadingVideo = false;
+            };
+            
+            // Listen for when enough data is loaded to play
+            videoElement.addEventListener('canplaythrough', function onCanPlayThrough() {
+                videoElement.removeEventListener('canplaythrough', onCanPlayThrough);
+                startPlayback();
             }, { once: true });
             
-            // Fallback timeout
+            // Fallback to canplay if canplaythrough takes too long
             setTimeout(() => {
-                isLoadingVideo = false;
-            }, 5000);
+                if (!hasStartedPlaying && videoElement.readyState >= 3) {
+                    startPlayback();
+                }
+            }, 3000);
+            
+            // Extended timeout for slow connections
+            loadingTimeout = setTimeout(() => {
+                if (!hasStartedPlaying) {
+                    console.warn('Video loading timeout, skipping to next');
+                    isLoadingVideo = false;
+                    playNextLocalVideo();
+                }
+            }, 30000);
         }
 
         // App initialisieren (wird nach Config-Laden aufgerufen)

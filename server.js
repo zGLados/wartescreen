@@ -34,15 +34,35 @@ function getVideoFiles() {
     const processedDir = path.join(__dirname, 'videos', 'processed');
     const videosDir = path.join(__dirname, 'videos');
     
-    // Check if processed directory exists and has files
-    if (fs.existsSync(processedDir)) {
+    // First, get count of original videos
+    let originalVideoCount = 0;
+    try {
+        if (fs.existsSync(videosDir)) {
+            const files = fs.readdirSync(videosDir);
+            originalVideoCount = files.filter(file => {
+                if (!/\.(mp4|webm|ogg|mov)$/i.test(file)) return false;
+                const stat = fs.statSync(path.join(videosDir, file));
+                return stat.isFile(); // Exclude directories
+            }).length;
+        }
+    } catch (error) {
+        console.error('Error counting original videos:', error);
+    }
+    
+    // Check if processed directory exists and has ALL videos compressed
+    if (fs.existsSync(processedDir) && originalVideoCount > 0) {
         try {
             const files = fs.readdirSync(processedDir);
             const videoFiles = files.filter(file => /\.(mp4|webm|ogg|mov)$/i.test(file));
-            if (videoFiles.length > 0) {
+            
+            // Only use processed videos if ALL original videos are compressed
+            if (videoFiles.length >= originalVideoCount) {
                 useProcessedVideos = true;
                 console.log(`[Server] Using ${videoFiles.length} compressed video(s) from /videos/processed/`);
                 return videoFiles;
+            } else {
+                console.log(`[Server] Compression incomplete: ${videoFiles.length}/${originalVideoCount} videos compressed`);
+                console.log(`[Server] Using original videos as fallback...`);
             }
         } catch (error) {
             console.error('Error reading processed videos directory:', error);
@@ -56,7 +76,11 @@ function getVideoFiles() {
             return [];
         }
         const files = fs.readdirSync(videosDir);
-        const videoFiles = files.filter(file => /\.(mp4|webm|ogg|mov)$/i.test(file));
+        const videoFiles = files.filter(file => {
+            if (!/\.(mp4|webm|ogg|mov)$/i.test(file)) return false;
+            const stat = fs.statSync(path.join(videosDir, file));
+            return stat.isFile(); // Exclude directories like 'processed'
+        });
         useProcessedVideos = false;
         console.log(`[Server] Using ${videoFiles.length} original video(s) from /videos/`);
         return videoFiles;
@@ -381,18 +405,37 @@ app.use('/videos', (req, res, next) => {
     const processedDir = path.join(__dirname, 'videos', 'processed');
     const videosDir = path.join(__dirname, 'videos');
     
+    // Decode the URL-encoded path
+    const decodedPath = decodeURIComponent(req.path);
+    
     // Try processed directory first
-    const processedPath = path.join(processedDir, req.path);
-    if (fs.existsSync(processedPath) && fs.statSync(processedPath).isFile()) {
-        return res.sendFile(processedPath);
+    const processedPath = path.join(processedDir, decodedPath);
+    if (fs.existsSync(processedPath)) {
+        const stat = fs.statSync(processedPath);
+        if (stat.isFile()) {
+            // Set aggressive caching headers
+            res.setHeader('Cache-Control', 'public, max-age=86400'); // 24 hours
+            res.setHeader('Accept-Ranges', 'bytes');
+            return res.sendFile(processedPath);
+        }
     }
     
     // Fallback to original videos
-    const originalPath = path.join(videosDir, req.path);
-    if (fs.existsSync(originalPath) && fs.statSync(originalPath).isFile()) {
-        return res.sendFile(originalPath);
+    const originalPath = path.join(videosDir, decodedPath);
+    if (fs.existsSync(originalPath)) {
+        const stat = fs.statSync(originalPath);
+        if (stat.isFile()) {
+            // Set aggressive caching headers
+            res.setHeader('Cache-Control', 'public, max-age=86400'); // 24 hours
+            res.setHeader('Accept-Ranges', 'bytes');
+            return res.sendFile(originalPath);
+        }
     }
     
+    // Debug logging
+    console.error(`[Video] Not found: ${decodedPath}`);
+    console.error(`[Video] Tried: ${processedPath}`);
+    console.error(`[Video] Tried: ${originalPath}`);
     res.status(404).send('Video not found');
 });
 
@@ -768,16 +811,7 @@ app.get('/', (req, res) => {
 async function startServer() {
     console.log('[Server] Starting...');
     
-    // Compress videos on startup (only new/changed videos)
-    try {
-        console.log('[Server] Checking for video compression...');
-        await compressAllVideos();
-    } catch (error) {
-        console.error('[Server] Video compression failed:', error.message);
-        console.log('[Server] Continuing with original videos...');
-    }
-    
-    // Start HTTP server
+    // Start HTTP server immediately
     app.listen(PORT, () => {
         console.log(`[Server] Running on http://localhost:${PORT}`);
         console.log(`[Server] Admin Interface: http://localhost:${PORT}/admin`);
@@ -788,6 +822,22 @@ async function startServer() {
         const videoSource = useProcessedVideos ? 'compressed (processed/)' : 'original (videos/)';
         console.log(`[Server] Serving ${videoCount} ${videoSource} video(s)`);
     });
+    
+    // Compress videos in background (only new/changed videos)
+    // This runs asynchronously after server start to avoid blocking
+    console.log('[Server] Starting background video compression...');
+    compressAllVideos()
+        .then(() => {
+            console.log('[Server] Background video compression completed');
+            // Update video source after compression completes
+            const videoCount = getVideoFiles().length;
+            const videoSource = useProcessedVideos ? 'compressed (processed/)' : 'original (videos/)';
+            console.log(`[Server] Now serving ${videoCount} ${videoSource} video(s)`);
+        })
+        .catch(error => {
+            console.error('[Server] Background video compression failed:', error.message);
+            console.log('[Server] Continuing with original videos...');
+        });
 }
 
 // Start the server

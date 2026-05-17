@@ -192,7 +192,30 @@
                     isLoadingVideo = false;
                     setTimeout(playNextLocalVideo, 1000);
                 });
-                playNextLocalVideo();
+                
+                // Page Visibility API: Only load videos when page is visible
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) {
+                        // Page hidden - pause video to save bandwidth
+                        videoElement.pause();
+                        console.log('[Video] Page hidden - paused video');
+                    } else {
+                        // Page visible - resume video
+                        if (!isLoadingVideo && videoElement.paused) {
+                            videoElement.play().catch(err => {
+                                console.log('[Video] Resume failed:', err);
+                            });
+                            console.log('[Video] Page visible - resumed video');
+                        }
+                    }
+                });
+                
+                // Only start playing if page is visible
+                if (!document.hidden) {
+                    playNextLocalVideo();
+                } else {
+                    console.log('[Video] Page hidden on load - delaying video start');
+                }
             }
         }
 
@@ -212,29 +235,63 @@
             }
             
             isLoadingVideo = true;
+            let loadingTimeout = null;
+            let hasStartedPlaying = false;
             
             // Clear old source
             videoElement.pause();
             videoElement.removeAttribute('src');
             videoElement.load();
             
-            // Set new video source
-            videoElement.src = `/videos/${VIDEO_FILES[currentVideoIndex]}`;
+            // Set new video source (URL-encode the filename)
+            const videoFileName = encodeURIComponent(VIDEO_FILES[currentVideoIndex]);
+            videoElement.src = `/videos/${videoFileName}`;
+            videoElement.preload = 'auto'; // Aggressive preloading
             
-            // Wait for video to be ready
-            videoElement.addEventListener('canplay', function onCanPlay() {
-                videoElement.removeEventListener('canplay', onCanPlay);
+            // Function to start playback
+            const startPlayback = () => {
+                if (hasStartedPlaying) return;
+                hasStartedPlaying = true;
+                
+                if (loadingTimeout) clearTimeout(loadingTimeout);
+                
                 videoElement.play().catch(err => {
                     console.log('Autoplay prevented:', err);
                     isLoadingVideo = false;
                 });
                 isLoadingVideo = false;
+            };
+            
+            // Listen for when enough data is loaded to play
+            videoElement.addEventListener('canplaythrough', function onCanPlayThrough() {
+                videoElement.removeEventListener('canplaythrough', onCanPlayThrough);
+                startPlayback();
             }, { once: true });
             
-            // Fallback timeout
+            // Fallback to canplay if canplaythrough takes too long
             setTimeout(() => {
-                isLoadingVideo = false;
-            }, 5000);
+                if (!hasStartedPlaying && videoElement.readyState >= 3) {
+                    startPlayback();
+                }
+            }, 3000);
+            
+            // Extended timeout for slow connections (30 seconds)
+            loadingTimeout = setTimeout(() => {
+                if (!hasStartedPlaying) {
+                    console.warn('Video loading timeout, skipping to next');
+                    isLoadingVideo = false;
+                    playNextLocalVideo();
+                }
+            }, 30000);
+            
+            // Handle stalling during playback
+            videoElement.addEventListener('waiting', function onWaiting() {
+                console.log('Video buffering...');
+            });
+            
+            videoElement.addEventListener('stalled', function onStalled() {
+                console.warn('Video stalled, may skip soon');
+            });
         }
 
         async function checkTechDifficulties() {

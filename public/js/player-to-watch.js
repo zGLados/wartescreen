@@ -42,6 +42,9 @@ async function playNextVideo() {
     }
 
     isLoadingVideo = true;
+    let loadingTimeout = null;
+    let hasStartedPlaying = false;
+    
     currentVideoIndex = (currentVideoIndex + 1) % videoFiles.length;
     const videoFile = videoFiles[currentVideoIndex];
     
@@ -50,23 +53,46 @@ async function playNextVideo() {
     videoElement.removeAttribute('src');
     videoElement.load();
     
-    // Set new video source
-    videoElement.src = `/videos/${videoFile}`;
+    // Set new video source (URL-encode the filename)
+    const videoFileName = encodeURIComponent(videoFile);
+    videoElement.src = `/videos/${videoFileName}`;
+    videoElement.preload = 'auto'; // Aggressive preloading
     
-    // Wait for video to be ready before playing
-    videoElement.addEventListener('canplay', function onCanPlay() {
-        videoElement.removeEventListener('canplay', onCanPlay);
+    // Function to start playback
+    const startPlayback = () => {
+        if (hasStartedPlaying) return;
+        hasStartedPlaying = true;
+        
+        if (loadingTimeout) clearTimeout(loadingTimeout);
+        
         videoElement.play().catch(err => {
             console.log('Autoplay prevented:', err);
             isLoadingVideo = false;
         });
         isLoadingVideo = false;
+    };
+    
+    // Listen for when enough data is loaded to play
+    videoElement.addEventListener('canplaythrough', function onCanPlayThrough() {
+        videoElement.removeEventListener('canplaythrough', onCanPlayThrough);
+        startPlayback();
     }, { once: true });
     
-    // Fallback timeout
+    // Fallback to canplay if canplaythrough takes too long
     setTimeout(() => {
-        isLoadingVideo = false;
-    }, 5000);
+        if (!hasStartedPlaying && videoElement.readyState >= 3) {
+            startPlayback();
+        }
+    }, 3000);
+    
+    // Extended timeout for slow connections
+    loadingTimeout = setTimeout(() => {
+        if (!hasStartedPlaying) {
+            console.warn('Video loading timeout, skipping to next');
+            isLoadingVideo = false;
+            playNextVideo();
+        }
+    }, 30000);
 }
 
 videoElement.addEventListener('ended', playNextVideo);
@@ -76,6 +102,21 @@ videoElement.addEventListener('error', (e) => {
     console.error('Video error:', e);
     isLoadingVideo = false;
     setTimeout(playNextVideo, 1000); // Try next video after 1 second
+});
+
+// Page Visibility API: Pause videos when page is hidden
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        videoElement.pause();
+        console.log('[Video] Page hidden - paused video');
+    } else {
+        if (!isLoadingVideo && videoElement.paused) {
+            videoElement.play().catch(err => {
+                console.log('[Video] Resume failed:', err);
+            });
+            console.log('[Video] Page visible - resumed video');
+        }
+    }
 });
 
 // Partner Logos (similar to viewer.js)
