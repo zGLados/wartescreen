@@ -4,7 +4,10 @@
 // Video Management
 let currentVideoIndex = 0;
 const videoElement = document.getElementById('bg-video-local');
+let videoFiles = [];
+let isLoadingVideo = false;
 
+// Fetch video list once at startup
 async function getVideoFiles() {
     try {
         const response = await fetch('/api/videos');
@@ -17,20 +20,49 @@ async function getVideoFiles() {
 }
 
 async function playNextVideo() {
-    const videos = await getVideoFiles();
-    if (videos.length === 0) {
+    if (isLoadingVideo) return; // Prevent multiple simultaneous loads
+    
+    if (videoFiles.length === 0) {
         console.warn('No videos available');
         return;
     }
 
-    currentVideoIndex = (currentVideoIndex + 1) % videos.length;
-    const videoFile = videos[currentVideoIndex];
+    isLoadingVideo = true;
+    currentVideoIndex = (currentVideoIndex + 1) % videoFiles.length;
+    const videoFile = videoFiles[currentVideoIndex];
     
+    // Clear old source before setting new one
+    videoElement.pause();
+    videoElement.removeAttribute('src');
+    videoElement.load();
+    
+    // Set new video source
     videoElement.src = `/videos/${videoFile}`;
-    videoElement.play().catch(err => console.log('Autoplay prevented:', err));
+    
+    // Wait for video to be ready before playing
+    videoElement.addEventListener('canplay', function onCanPlay() {
+        videoElement.removeEventListener('canplay', onCanPlay);
+        videoElement.play().catch(err => {
+            console.log('Autoplay prevented:', err);
+            isLoadingVideo = false;
+        });
+        isLoadingVideo = false;
+    }, { once: true });
+    
+    // Fallback timeout
+    setTimeout(() => {
+        isLoadingVideo = false;
+    }, 5000);
 }
 
 videoElement.addEventListener('ended', playNextVideo);
+
+// Handle errors gracefully
+videoElement.addEventListener('error', (e) => {
+    console.error('Video error:', e);
+    isLoadingVideo = false;
+    setTimeout(playNextVideo, 1000); // Try next video after 1 second
+});
 
 // Partner Logos
 async function loadPartnerLogos() {
@@ -136,8 +168,14 @@ async function init() {
     // Load partner logos
     await loadPartnerLogos();
     
+    // Load video list once at startup
+    videoFiles = await getVideoFiles();
+    console.log(`[Video] Loaded ${videoFiles.length} videos`);
+    
     // Start video playback
-    await playNextVideo();
+    if (videoFiles.length > 0) {
+        await playNextVideo();
+    }
     
     // Display player stats (PLAYER_ID and PLAYER_NAME are set in HTML)
     if (typeof PLAYER_ID !== 'undefined' && typeof PLAYER_NAME !== 'undefined') {

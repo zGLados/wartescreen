@@ -302,8 +302,8 @@
             <div class="preview-timer" id="previewTimer">01:00</div>
 
             <div class="btn-group">
-                <button class="btn btn-primary" onclick="setTimer()">Start Timer</button>
-                <button class="btn btn-danger" onclick="clearTimer()">Reset Timer</button>
+                <button class="btn btn-primary" onclick="setTimer()">Set/Update Timer</button>
+                <button class="btn btn-danger" onclick="clearTimer()">Clear Timer</button>
             </div>
 
             <div id="statusMessage" class="status-message"></div>
@@ -392,12 +392,16 @@
             <div class="info-box">
                 <p><strong>1.</strong> Enter Match ID (Format: 1-GUID)</p>
                 <p><strong>2.</strong> Select timer duration or enter manually</p>
-                <p><strong>3.</strong> Click "Start Timer"</p>
+                <p><strong>3.</strong> Click "Set/Update Timer"</p>
                 <p><strong>4.</strong> Open viewer page with the generated link</p>
-                <p style="margin-top: 15px;"><strong>🎯 Smart Timer Logic:</strong></p>
-                <p style="margin-left: 20px;">• When the match is <strong>in the future</strong>: FACEIT countdown runs first</p>
-                <p style="margin-left: 20px;">• As soon as the match <strong>starts</strong>: Your manual timer becomes active</p>
-                <p style="margin-left: 20px;">• You can set the timer in advance - it activates automatically!</p>
+                <p style="margin-top: 15px;"><strong>🎯 Manual Timer - ABSOLUTE PRIORITY:</strong></p>
+                <p style="margin-left: 20px;">• <strong>Manual timer overrides EVERYTHING</strong></p>
+                <p style="margin-left: 20px;">• Runs continuously - ignores veto actions, match status changes, lineup changes</p>
+                <p style="margin-left: 20px;">• Counts down to 0:00 → shows "Soon™"</p>
+                <p style="margin-left: 20px;">• Map veto is still displayed when available</p>
+                <p style="margin-left: 20px;">• Update timer anytime - changes apply within 0.5 seconds</p>
+                <p style="margin-top: 15px;"><strong>🔄 Return to Automatic Timers:</strong></p>
+                <p style="margin-left: 20px;">Click "Clear Timer" - switches back to FACEIT timers within 0.5 seconds</p>
                 <p style="margin-top: 15px;"><strong>Note:</strong> The timer is updated live on the viewer page.</p>
             </div>
         </div>
@@ -508,7 +512,7 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showStatus(`✓ Timer successfully set to ${duration}s!`, 'success');
+                    showStatus(`✓ Timer set to ${duration}s! Updates live within 0.5 seconds.`, 'success');
                 } else {
                     showStatus('Error setting timer', 'error');
                 }

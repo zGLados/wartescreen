@@ -96,7 +96,7 @@
 </head>
 <body>
     <div id="bg-video-container">
-        <video id="bg-video-local" muted playsinline style="display: none;"></video>
+        <video id="bg-video-local" muted playsinline preload="metadata" poster="" style="display: none;"></video>
     </div>
 
     <div class="pause-content">
@@ -140,6 +140,7 @@
         }
 
         let currentVideoIndex = 0;
+        let isLoadingVideo = false;
 
         function initBackgroundVideo() {
             if (VIDEO_FILES && VIDEO_FILES.length > 0) {
@@ -183,26 +184,55 @@
                 // Random start video
                 currentVideoIndex = Math.floor(Math.random() * VIDEO_FILES.length);
                 
-                videoElement.onended = () => {
-                    // Choose another random video (not the same)
-                    if (VIDEO_FILES.length > 1) {
-                        let newIndex;
-                        do {
-                            newIndex = Math.floor(Math.random() * VIDEO_FILES.length);
-                        } while (newIndex === currentVideoIndex);
-                        currentVideoIndex = newIndex;
-                    }
-                    playNextLocalVideo();
-                };
+                videoElement.addEventListener('ended', playNextLocalVideo);
+                videoElement.addEventListener('error', (e) => {
+                    console.error('Video error:', e);
+                    isLoadingVideo = false;
+                    setTimeout(playNextLocalVideo, 1000);
+                });
                 playNextLocalVideo();
             }
         }
 
         function playNextLocalVideo() {
+            if (isLoadingVideo) return;
+            
             const videoElement = document.getElementById('bg-video-local');
-            if (!videoElement) return;
+            if (!videoElement || VIDEO_FILES.length === 0) return;
+            
+            // Choose another random video (not the same)
+            if (VIDEO_FILES.length > 1) {
+                let newIndex;
+                do {
+                    newIndex = Math.floor(Math.random() * VIDEO_FILES.length);
+                } while (newIndex === currentVideoIndex);
+                currentVideoIndex = newIndex;
+            }
+            
+            isLoadingVideo = true;
+            
+            // Clear old source
+            videoElement.pause();
+            videoElement.removeAttribute('src');
+            videoElement.load();
+            
+            // Set new video source
             videoElement.src = `/videos/${VIDEO_FILES[currentVideoIndex]}`;
-            videoElement.play().catch(e => console.log("Video Autoplay failed:", e));
+            
+            // Wait for video to be ready
+            videoElement.addEventListener('canplay', function onCanPlay() {
+                videoElement.removeEventListener('canplay', onCanPlay);
+                videoElement.play().catch(err => {
+                    console.log('Autoplay prevented:', err);
+                    isLoadingVideo = false;
+                });
+                isLoadingVideo = false;
+            }, { once: true });
+            
+            // Fallback timeout
+            setTimeout(() => {
+                isLoadingVideo = false;
+            }, 5000);
         }
 
         // App initialisieren (wird nach Config-Laden aufgerufen)

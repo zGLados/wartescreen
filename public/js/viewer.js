@@ -72,6 +72,7 @@
         const overrideIndicator = document.getElementById('timer-override-indicator');
         let currentVideoIndex = 0;
         let youtubePlayer = null;
+        let isLoadingVideo = false;
 
         function startTimer(duration = 180) {
             clearInterval(timerInterval);
@@ -81,6 +82,16 @@
             }
             timeLeft = duration;
             updateTimerDisplay();
+            
+            // If timer starts at 0, show Soon™ after 5 seconds
+            if (timeLeft === 0) {
+                timerInterval = null;
+                zeroTimerTimeout = setTimeout(() => {
+                    timerDisplay.textContent = "Soon™";
+                }, 5000);
+                return;
+            }
+            
             timerInterval = setInterval(() => {
                 if (timeLeft > 0) {
                     timeLeft--;
@@ -175,26 +186,55 @@
                 // Random start video
                 currentVideoIndex = Math.floor(Math.random() * VIDEO_FILES.length);
                 
-                videoElement.onended = () => {
-                    // Choose another random video (not the same)
-                    if (VIDEO_FILES.length > 1) {
-                        let newIndex;
-                        do {
-                            newIndex = Math.floor(Math.random() * VIDEO_FILES.length);
-                        } while (newIndex === currentVideoIndex);
-                        currentVideoIndex = newIndex;
-                    }
-                    playNextLocalVideo();
-                };
+                videoElement.addEventListener('ended', playNextLocalVideo);
+                videoElement.addEventListener('error', (e) => {
+                    console.error('Video error:', e);
+                    isLoadingVideo = false;
+                    setTimeout(playNextLocalVideo, 1000);
+                });
                 playNextLocalVideo();
             }
         }
 
         function playNextLocalVideo() {
+            if (isLoadingVideo) return;
+            
             const videoElement = document.getElementById('bg-video-local');
-            if (!videoElement) return;
+            if (!videoElement || VIDEO_FILES.length === 0) return;
+            
+            // Choose another random video (not the same)
+            if (VIDEO_FILES.length > 1) {
+                let newIndex;
+                do {
+                    newIndex = Math.floor(Math.random() * VIDEO_FILES.length);
+                } while (newIndex === currentVideoIndex);
+                currentVideoIndex = newIndex;
+            }
+            
+            isLoadingVideo = true;
+            
+            // Clear old source
+            videoElement.pause();
+            videoElement.removeAttribute('src');
+            videoElement.load();
+            
+            // Set new video source
             videoElement.src = `/videos/${VIDEO_FILES[currentVideoIndex]}`;
-            videoElement.play().catch(e => console.log("Video Autoplay failed:", e));
+            
+            // Wait for video to be ready
+            videoElement.addEventListener('canplay', function onCanPlay() {
+                videoElement.removeEventListener('canplay', onCanPlay);
+                videoElement.play().catch(err => {
+                    console.log('Autoplay prevented:', err);
+                    isLoadingVideo = false;
+                });
+                isLoadingVideo = false;
+            }, { once: true });
+            
+            // Fallback timeout
+            setTimeout(() => {
+                isLoadingVideo = false;
+            }, 5000);
         }
 
         async function checkTechDifficulties() {
@@ -220,35 +260,39 @@
                 const response = await fetch(`/api/timer/${MATCH_ID}`);
                 const data = await response.json();
                 
-                // If match is in the future, ignore timer override
-                if (scheduledAt) {
-                    const now = Math.floor(Date.now() / 1000);
-                    const timeUntilMatch = scheduledAt - now;
-                    
-                    if (timeUntilMatch > 0) {
-                        // Match is in the future - use FACEIT timer
-                        hasTimerOverride = false;
-                        overrideIndicator.style.display = 'none';
-
-                        return;
-                    }
-                }
+                const wasOverrideActive = hasTimerOverride;
                 
-                // Match has already started or no scheduled_at - use override
+                // Admin timer ALWAYS has priority when set
                 if (data.hasOverride) {
                     hasTimerOverride = true;
-                    overrideIndicator.style.display = 'block';
+                    // Don't show indicator on viewer page
                     
                     // Only start timer if none is running or large difference (admin changed timer)
-                    if (!timerInterval) {
+                    // Don't restart if timer is at 0 and Soon™ timeout is pending
+                    if (!timerInterval && !zeroTimerTimeout) {
                         startTimer(data.remaining);
-                    } else if (Math.abs(timeLeft - data.remaining) > 10) {
+                    } else if (timerInterval && Math.abs(timeLeft - data.remaining) > 10) {
                         // Only restart on large difference (>10s) - admin manually changed timer
                         startTimer(data.remaining);
                     }
                 } else {
                     hasTimerOverride = false;
-                    overrideIndicator.style.display = 'none';
+                    // Don't show indicator on viewer page
+                    
+                    // If override was just cleared, immediately fetch FACEIT data and start automatic timers
+                    if (wasOverrideActive) {
+                        console.log('[Timer Override] Cleared - switching to automatic timers');
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                        
+                        // Clear any pending Soon™ timeout
+                        if (zeroTimerTimeout) {
+                            clearTimeout(zeroTimerTimeout);
+                            zeroTimerTimeout = null;
+                        }
+                        
+                        fetchMatchData();
+                    }
                 }
             } catch (error) {
                 console.error('Timer Override Check Error:', error);
@@ -368,11 +412,11 @@
             const bans = voting.drop || [];
 
             const totalActions = picks.length + bans.length;
-            if (totalActions > lastVetoCount && !hasTimerOverride) {
+            if (totalActions > lastVetoCount) {
                 lastVetoCount = totalActions;
-                // Only start/restart timer if none is running or if it was the last action
-                // 3 minute timer on each new veto action
-                if (!timerInterval) {
+                // Only start/restart timer if no admin override is active
+                if (!hasTimerOverride && !timerInterval) {
+                    // 3 minute timer on each new veto action
                     startTimer(180);
                 }
             }
@@ -546,6 +590,7 @@
             actionDisplay.textContent = "Stream starting soon...";
 
             // If no timer override is active, use FACEIT time
+            // If manual timer is active, don't touch FACEIT timers
             if (!hasTimerOverride && data.scheduled_at) {
                 const now = Math.floor(Date.now() / 1000);
                 const diff = data.scheduled_at - now;
@@ -564,6 +609,7 @@
                 timerInterval = null;
                 timerDisplay.textContent = "00:00";
             }
+            // If hasTimerOverride is true, do nothing - let manual timer run
         }
 
         // Auto-detect which display team (left/right) starts the veto process
@@ -844,14 +890,56 @@
             `;
         }
 
+        // Update only action text without touching the timer (for manual timer mode)
+        function updateActionTextOnly(data, now) {
+            switch(data.status) {
+                case 'FINISHED':
+                    actionDisplay.textContent = "Match finished!";
+                    break;
+                case 'READY':
+                    if (data.configured_at && data.configured_at > now - 600) {
+                        actionDisplay.textContent = "Time to connect!";
+                    } else {
+                        actionDisplay.textContent = "Match is ready!";
+                    }
+                    break;
+                case 'ONGOING':
+                    actionDisplay.textContent = "Match is live!";
+                    break;
+                case 'CONFIGURING':
+                    actionDisplay.textContent = "Setting lineup...";
+                    break;
+                case 'CHECKING_IN':
+                    actionDisplay.textContent = "Check-in in progress...";
+                    break;
+                case 'CANCELLED':
+                case 'ABORTED':
+                    actionDisplay.textContent = "Match cancelled";
+                    break;
+                default:
+                    if (data.scheduled_at && data.scheduled_at > now) {
+                        actionDisplay.textContent = "Upcoming match";
+                    } else if (data.voting && data.voting.map && data.voting.map.pick && data.voting.map.pick.length > 0) {
+                        actionDisplay.textContent = "Veto finished!";
+                    } else {
+                        actionDisplay.textContent = "Stream starts in";
+                    }
+                    break;
+            }
+        }
+
         function updateStatusText(data) {
             const now = Math.floor(Date.now() / 1000);
             
-            // Reset timer on status change (except for manual override)
-            // IMPORTANT: Don't reset renderedMaps to prevent re-animating maps
-            if (lastMatchStatus !== null && lastMatchStatus !== data.status && !hasTimerOverride) {
-                clearInterval(timerInterval);
-                timerInterval = null;
+            // If manual timer is active, don't reset it on status changes
+            // Manual timer has absolute priority
+            if (!hasTimerOverride) {
+                // Reset timer on status change (except for manual override)
+                // IMPORTANT: Don't reset renderedMaps to prevent re-animating maps
+                if (lastMatchStatus !== null && lastMatchStatus !== data.status) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
             }
             lastMatchStatus = data.status;
             
@@ -860,7 +948,14 @@
                 isOngoingTimerRunning = false;
             }
             
-            // FACEIT Status-Mapping
+            // If manual timer is active, skip all automatic timer logic
+            if (hasTimerOverride) {
+                // Keep the action text updates but don't touch the timer
+                updateActionTextOnly(data, now);
+                return;
+            }
+            
+            // FACEIT Status-Mapping (only when no manual timer)
             switch(data.status) {
                 case 'FINISHED':
                     // Outro will already be handled in renderVeto/fetchAndRenderSimpleCountdown
@@ -945,7 +1040,7 @@
                             }
                         }
                     } else {
-                        actionDisplay.textContent = "Veto in progress...";
+                        actionDisplay.textContent = "Stream starts in";
                     }
                     break;
             }
@@ -955,6 +1050,11 @@
         function initApp() {
             fetchMatchData();
             setInterval(fetchMatchData, REFRESH_INTERVAL);
+            
+            // Check timer override frequently (every 500ms)
+            // This ensures admin timer changes are reflected quickly
+            setInterval(() => checkTimerOverride(null), 500);
+            
             initBackgroundVideo();
             initPartners();
         }
