@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 3000;
 
 // FACEIT API Configuration
 const FACEIT_API_KEY = process.env.FACEIT_API_KEY || '84e84dc8-0f8a-4497-85ff-5d282933a213';
-const LEAGUE_KEYWORDS = ['esea', 'open', 'season', 's57', 'league', 'division', 'championship'];
+const CURRENT_SEASON = 's57'; // Update this when new season starts
 const TEAM_ID = '905ca82f-1391-4a44-9840-601455a6b75e'; // TacAM Team ID
 
 // Player Stats Cache
@@ -111,22 +111,22 @@ async function calculatePlayerStats(playerId) {
     const { player, matches } = data;
     const actualPlayerId = player.player_id; // Use the real player_id from the API
     
-    // Use player's matches and filter for S57 EU Open10 D league matches only
+    // Use player's matches and filter for current season (S57 EU Open10 D)
+    // Includes Regular Season, Playoffs, and all other stages
     const leagueMatches = matches.filter(match => {
         const compName = (match.competition_name || '').toLowerCase();
         
-        // Specific filter: Only S57 EU Open10 D Regular Season
-        const isS57Open10D = compName.includes('s57') && 
-                            compName.includes('eu') && 
-                            compName.includes('open10') && 
-                            compName.includes('d') &&
-                            compName.includes('regular season');
+        // Filter for current season: includes all stages (Regular Season, Playoffs, etc.)
+        const isCurrentSeason = compName.includes(CURRENT_SEASON) && 
+                               compName.includes('eu') && 
+                               compName.includes('open10') && 
+                               compName.includes('d');
         
-        return isS57Open10D;
+        return isCurrentSeason;
     });
     
     const seasonMatches = leagueMatches;
-    console.log(`[Stats] Processing ${seasonMatches.length} S57 EU Open10 D matches for ${playerId}`);
+    console.log(`[Stats] Processing ${seasonMatches.length} ${CURRENT_SEASON.toUpperCase()} EU Open10 D matches (all stages) for ${playerId}`);
 
     // Calculate statistics
     let playerTotalKills = 0;
