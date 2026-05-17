@@ -111,17 +111,22 @@ async function calculatePlayerStats(playerId) {
     const { player, matches } = data;
     const actualPlayerId = player.player_id; // Use the real player_id from the API
     
-    // Use player's matches and filter for league matches
+    // Use player's matches and filter for S57 EU Open10 D league matches only
     const leagueMatches = matches.filter(match => {
         const compName = (match.competition_name || '').toLowerCase();
-        const compType = match.competition_type || '';
-        const hasLeagueKeyword = LEAGUE_KEYWORDS.some(keyword => compName.includes(keyword));
-        const isChampionship = compType === 'championship';
-        return hasLeagueKeyword || isChampionship;
+        
+        // Specific filter: Only S57 EU Open10 D Regular Season
+        const isS57Open10D = compName.includes('s57') && 
+                            compName.includes('eu') && 
+                            compName.includes('open10') && 
+                            compName.includes('d') &&
+                            compName.includes('regular season');
+        
+        return isS57Open10D;
     });
     
     const seasonMatches = leagueMatches;
-    console.log(`[Stats] Processing ${seasonMatches.length} league matches for ${playerId}`);
+    console.log(`[Stats] Processing ${seasonMatches.length} S57 EU Open10 D matches for ${playerId}`);
 
     // Calculate statistics
     let playerTotalKills = 0;
@@ -133,40 +138,11 @@ async function calculatePlayerStats(playerId) {
     let playerMvps = 0;
     let playerValidMatches = 0;
     
+    // Track unique matches to count team wins/losses correctly
+    const processedMatches = new Set();
+    
     for (let i = 0; i < seasonMatches.length; i++) {
         const match = seasonMatches[i];
-        
-        // Count team wins for team winrate - FIXED: Proper parsing
-        if (match.results && match.teams) {
-            const teams = match.teams;
-            
-            // Check if teams object has faction1 and faction2
-            if (teams.faction1 && teams.faction2) {
-                teamMatchesCount++;
-                
-                // Determine which faction the player was on
-                let playerFaction = null;
-                
-                // Check faction1
-                if (teams.faction1.roster && Array.isArray(teams.faction1.roster)) {
-                    if (teams.faction1.roster.some(p => p.player_id === actualPlayerId || p.nickname === playerId)) {
-                        playerFaction = 'faction1';
-                    }
-                }
-                
-                // Check faction2 if not found in faction1
-                if (!playerFaction && teams.faction2.roster && Array.isArray(teams.faction2.roster)) {
-                    if (teams.faction2.roster.some(p => p.player_id === actualPlayerId || p.nickname === playerId)) {
-                        playerFaction = 'faction2';
-                    }
-                }
-                
-                // Count win if player's faction won
-                if (playerFaction && match.results.winner === playerFaction) {
-                    teamWins++;
-                }
-            }
-        }
         
         // Get detailed match stats
         try {
@@ -176,7 +152,9 @@ async function calculatePlayerStats(playerId) {
             };
             
             const statsResponse = await fetch(`https://open.faceit.com/data/v4/matches/${match.match_id}/stats`, { headers });
-            if (!statsResponse.ok) continue;
+            if (!statsResponse.ok) {
+                continue;
+            }
             
             const matchStats = await statsResponse.json();
             
@@ -186,13 +164,42 @@ async function calculatePlayerStats(playerId) {
             let maxMvpCount = 0;
             let ourTeamRoster = [];
             let playerTeamIndex = -1; // Which team is our player on
+            let winningTeamIndex = -1; // Which team won
             
-            // First pass: find which team our player is on
-            for (let teamIdx = 0; teamIdx < matchStats.rounds[0].teams.length; teamIdx++) {
-                const team = matchStats.rounds[0].teams[teamIdx];
-                if (team.players.some(p => p.player_id === actualPlayerId || p.nickname === playerId)) {
-                    playerTeamIndex = teamIdx;
-                    break;
+            // Determine which team won based on score
+            if (matchStats.rounds && matchStats.rounds.length > 0) {
+                const round = matchStats.rounds[0];
+                if (round.teams && round.teams.length >= 2) {
+                    const team1Score = parseInt(round.teams[0].team_stats?.['Team Win'] || round.teams[0].team_stats?.['Final Score'] || 0);
+                    const team2Score = parseInt(round.teams[1].team_stats?.['Team Win'] || round.teams[1].team_stats?.['Final Score'] || 0);
+                    
+                    if (team1Score > team2Score) {
+                        winningTeamIndex = 0;
+                    } else if (team2Score > team1Score) {
+                        winningTeamIndex = 1;
+                    }
+                }
+            }
+            
+            // Find which team our player is on
+            if (matchStats.rounds && matchStats.rounds.length > 0) {
+                for (let teamIdx = 0; teamIdx < matchStats.rounds[0].teams.length; teamIdx++) {
+                    const team = matchStats.rounds[0].teams[teamIdx];
+                    if (team.players.some(p => p.player_id === actualPlayerId || p.nickname === playerId)) {
+                        playerTeamIndex = teamIdx;
+                        break;
+                    }
+                }
+            }
+            
+            // Count team wins/losses only once per match
+            if (playerTeamIndex !== -1 && !processedMatches.has(match.match_id)) {
+                processedMatches.add(match.match_id);
+                teamMatchesCount++;
+                
+                // Check if player's team won
+                if (playerTeamIndex === winningTeamIndex) {
+                    teamWins++;
                 }
             }
             
@@ -255,19 +262,24 @@ async function calculatePlayerStats(playerId) {
         }
     }
 
-    console.log(`[Stats] Stats calculated for ${playerId}: Player matches=${playerValidMatches}, Team matches=${teamMatchesCount}, Wins=${teamWins}, MVPs=${playerMvps}`);
+    const teamLosses = teamMatchesCount - teamWins;
+    const teamWinrate = teamMatchesCount > 0 ? Math.round((teamWins / teamMatchesCount) * 100) : 0;
+    
+    console.log(`[Stats] Stats calculated for ${playerId}:`);
+    console.log(`  - Player: ${playerValidMatches} matches played, ${playerMvps} MVPs`);
+    console.log(`  - Team: ${teamWins}W-${teamLosses}L (${teamMatchesCount} total matches, ${teamWinrate}% winrate)`);
+    console.log(`  - Team K/D: ${teamTotalKills}K/${teamTotalDeaths}D across ${teamMatchesCount} season matches`);
 
-    // Calculate averages
+    // Calculate averages (all from league matches only)
     const avgKills = playerValidMatches > 0 && playerTotalKills > 0 ? (playerTotalKills / playerValidMatches).toFixed(1) : 'N/A';
     const teamKd = teamTotalDeaths > 0 ? (teamTotalKills / teamTotalDeaths).toFixed(2) : 'N/A';
-    const teamWinrate = teamMatchesCount > 0 ? Math.round((teamWins / teamMatchesCount) * 100) : 0;
 
     return {
         player: player,
         mvps: playerMvps || 0,
         avgKills: avgKills,
-        winrate: teamWinrate, // Team winrate
-        kd: teamKd, // Team K/D
+        winrate: teamWinrate, // Team winrate (league matches only)
+        kd: teamKd, // Team K/D (league matches only)
         validMatches: playerValidMatches,
         teamMatchesCount: teamMatchesCount,
         teamWins: teamWins,
