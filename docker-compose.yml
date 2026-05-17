@@ -18,8 +18,8 @@ services:
       - REFRESH_INTERVAL=${REFRESH_INTERVAL:-5000}
       - YOUTUBE_PLAYLIST_URL=${YOUTUBE_PLAYLIST_URL}
     volumes:
-      # Mount videos directory (optional - fallback for local videos)
-      - ./videos:/app/videos:ro
+      # Mount videos directory (read-write for compression)
+      - ./videos:/app/videos
       # Mount partners directory for partner/sponsor logos
       - ./public/partners:/app/public/partners:ro
     networks:

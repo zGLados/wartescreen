@@ -13,6 +13,9 @@ RUN npm install --production
 # Final stage
 FROM node:18-alpine
 
+# Install FFmpeg for video compression
+RUN apk add --no-cache ffmpeg
+
 # Set working directory
 WORKDIR /app
 
@@ -21,6 +24,7 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # Copy application files
 COPY server.js ./
+COPY scripts ./scripts
 COPY public ./public
 # Videos and partners are mounted via volumes (not copied)
 

@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const { compressAllVideos } = require('./scripts/compress-videos');
 require('dotenv').config();
 
 const app = express();
@@ -10,6 +11,9 @@ const PORT = process.env.PORT || 3000;
 const FACEIT_API_KEY = process.env.FACEIT_API_KEY || '84e84dc8-0f8a-4497-85ff-5d282933a213';
 const CURRENT_SEASON = 's57'; // Update this when new season starts
 const TEAM_ID = '905ca82f-1391-4a44-9840-601455a6b75e'; // TacAM Team ID
+
+// Video Compression Status
+let useProcessedVideos = false;
 
 // Player Stats Cache
 const playerStatsCache = new Map();
@@ -26,14 +30,36 @@ const TRACKED_PLAYERS = [
 
 // Function to automatically scan all videos
 function getVideoFiles() {
+    // Prefer processed videos if available
+    const processedDir = path.join(__dirname, 'videos', 'processed');
     const videosDir = path.join(__dirname, 'videos');
+    
+    // Check if processed directory exists and has files
+    if (fs.existsSync(processedDir)) {
+        try {
+            const files = fs.readdirSync(processedDir);
+            const videoFiles = files.filter(file => /\.(mp4|webm|ogg|mov)$/i.test(file));
+            if (videoFiles.length > 0) {
+                useProcessedVideos = true;
+                console.log(`[Server] Using ${videoFiles.length} compressed video(s) from /videos/processed/`);
+                return videoFiles;
+            }
+        } catch (error) {
+            console.error('Error reading processed videos directory:', error);
+        }
+    }
+    
+    // Fallback to original videos
     try {
         if (!fs.existsSync(videosDir)) {
             console.warn('Videos directory not found');
             return [];
         }
         const files = fs.readdirSync(videosDir);
-        return files.filter(file => /\.(mp4|webm|ogg|mov)$/i.test(file));
+        const videoFiles = files.filter(file => /\.(mp4|webm|ogg|mov)$/i.test(file));
+        useProcessedVideos = false;
+        console.log(`[Server] Using ${videoFiles.length} original video(s) from /videos/`);
+        return videoFiles;
     } catch (error) {
         console.error('Error reading videos directory:', error);
         return [];
@@ -349,7 +375,26 @@ setTimeout(() => {
 // Middleware for JSON and static files
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/videos', express.static(path.join(__dirname, 'videos')));
+
+// Serve videos from processed directory if available, otherwise from original
+app.use('/videos', (req, res, next) => {
+    const processedDir = path.join(__dirname, 'videos', 'processed');
+    const videosDir = path.join(__dirname, 'videos');
+    
+    // Try processed directory first
+    const processedPath = path.join(processedDir, req.path);
+    if (fs.existsSync(processedPath) && fs.statSync(processedPath).isFile()) {
+        return res.sendFile(processedPath);
+    }
+    
+    // Fallback to original videos
+    const originalPath = path.join(videosDir, req.path);
+    if (fs.existsSync(originalPath) && fs.statSync(originalPath).isFile()) {
+        return res.sendFile(originalPath);
+    }
+    
+    res.status(404).send('Video not found');
+});
 
 // In-memory storage for timer overrides (can be moved to a DB later)
 const timerOverrides = {};
@@ -719,8 +764,34 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`Server läuft auf http://localhost:${PORT}`);
-    console.log(`Admin-Interface: http://localhost:${PORT}/admin`);
-    console.log(`Viewer-Beispiel: http://localhost:${PORT}/1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6`);
+// Startup function with video compression
+async function startServer() {
+    console.log('[Server] Starting...');
+    
+    // Compress videos on startup (only new/changed videos)
+    try {
+        console.log('[Server] Checking for video compression...');
+        await compressAllVideos();
+    } catch (error) {
+        console.error('[Server] Video compression failed:', error.message);
+        console.log('[Server] Continuing with original videos...');
+    }
+    
+    // Start HTTP server
+    app.listen(PORT, () => {
+        console.log(`[Server] Running on http://localhost:${PORT}`);
+        console.log(`[Server] Admin Interface: http://localhost:${PORT}/admin`);
+        console.log(`[Server] Viewer Example: http://localhost:${PORT}/1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6`);
+        
+        // Log video status
+        const videoCount = getVideoFiles().length;
+        const videoSource = useProcessedVideos ? 'compressed (processed/)' : 'original (videos/)';
+        console.log(`[Server] Serving ${videoCount} ${videoSource} video(s)`);
+    });
+}
+
+// Start the server
+startServer().catch(error => {
+    console.error('[Server] Failed to start:', error);
+    process.exit(1);
 });
