@@ -8,10 +8,10 @@ services:
     container_name: faceit-wartescreen
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-3001}:3001"
     environment:
       - FACEIT_API_KEY=${FACEIT_API_KEY}
-      - PORT=3000
+      - PORT=3001
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - SHOW_VETO=${SHOW_VETO:-false}
