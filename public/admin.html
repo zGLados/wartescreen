@@ -388,6 +388,28 @@
         </div>
 
         <div class="card">
+            <h2 class="section-title">Timer Display After Veto</h2>
+            
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="hideTimerAfterVetoCheckbox" onchange="updateHideTimerPreview()" style="margin-right: 10px;">
+                    Hide timer and countdown after veto is complete
+                </label>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
+                    <strong>Enabled:</strong> Timer disappears once all picks/bans are done - only maps remain visible<br>
+                    <strong>Disabled (Default):</strong> Timer continues to run even after veto completion
+                </p>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-success" onclick="saveHideTimerAfterVeto()">Save Timer Setting</button>
+                <button class="btn btn-danger" onclick="resetHideTimerAfterVeto()">Reset to Default</button>
+            </div>
+
+            <div id="hideTimerAfterVetoStatusMessage" class="status-message"></div>
+        </div>
+
+        <div class="card">
             <h2 class="section-title">Instructions</h2>
             <div class="info-box">
                 <p><strong>1.</strong> Enter Match ID (Format: 1-GUID)</p>
@@ -685,6 +707,7 @@
             loadVetoSetting();
             loadTechDifficulties();
             loadVetoStart();
+            loadHideTimerAfterVeto();
         });
 
         async function loadTechDifficulties() {
@@ -881,6 +904,114 @@
 
             setTimeout(() => {
                 vetoStartStatusMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // Hide Timer After Veto Functions
+        const hideTimerAfterVetoCheckbox = document.getElementById('hideTimerAfterVetoCheckbox');
+        const hideTimerAfterVetoStatusMessage = document.getElementById('hideTimerAfterVetoStatusMessage');
+
+        async function loadHideTimerAfterVeto() {
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+            
+            if (!matchId || !matchId.match(/^1-[a-f0-9-]+$/i)) {
+                hideTimerAfterVetoCheckbox.checked = false; // Default
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/hide-timer-after-veto/${matchId}`);
+                const data = await response.json();
+                hideTimerAfterVetoCheckbox.checked = data.hideTimerAfterVeto;
+            } catch (error) {
+                console.error('Error loading hide timer after veto setting:', error);
+                hideTimerAfterVetoCheckbox.checked = false; // Default on error
+            }
+        }
+
+        function updateHideTimerPreview() {
+            // Optional: Preview logic
+        }
+
+        async function saveHideTimerAfterVeto() {
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+
+            if (!matchId) {
+                showHideTimerAfterVetoStatus('Please enter Match ID or FACEIT Link!', 'error');
+                return;
+            }
+
+            if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
+                showHideTimerAfterVetoStatus('Invalid Match ID! Format: 1-abc-... or valid FACEIT Link', 'error');
+                return;
+            }
+
+            const hideTimer = hideTimerAfterVetoCheckbox.checked;
+
+            try {
+                const response = await fetch(`/api/hide-timer-after-veto/${matchId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ hideTimer })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showHideTimerAfterVetoStatus(`✓ Timer display ${hideTimer ? 'will hide' : 'will stay visible'} after veto completion!`, 'success');
+                } else {
+                    showHideTimerAfterVetoStatus('Error saving timer setting', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showHideTimerAfterVetoStatus('Connection error: ' + error.message, 'error');
+            }
+        }
+
+        async function resetHideTimerAfterVeto() {
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+
+            if (!matchId) {
+                showHideTimerAfterVetoStatus('Please enter Match ID or FACEIT Link!', 'error');
+                return;
+            }
+
+            if (!matchId.match(/^1-[a-f0-9-]+$/i)) {
+                showHideTimerAfterVetoStatus('Invalid Match ID! Format: 1-abc-... or valid FACEIT Link', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/hide-timer-after-veto/${matchId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showHideTimerAfterVetoStatus('✓ Timer setting reset to default (visible after veto)!', 'success');
+                    await loadHideTimerAfterVeto(); // Reload default
+                } else {
+                    showHideTimerAfterVetoStatus('Error resetting timer setting', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showHideTimerAfterVetoStatus('Connection error: ' + error.message, 'error');
+            }
+        }
+
+        function showHideTimerAfterVetoStatus(message, type) {
+            hideTimerAfterVetoStatusMessage.textContent = message;
+            hideTimerAfterVetoStatusMessage.className = `status-message status-${type}`;
+            hideTimerAfterVetoStatusMessage.style.display = 'block';
+
+            setTimeout(() => {
+                hideTimerAfterVetoStatusMessage.style.display = 'none';
             }, 5000);
         }
 

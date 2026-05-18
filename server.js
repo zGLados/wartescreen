@@ -449,6 +449,9 @@ const vetoOverrides = {};
 // 'left' = left team starts, 'right' = right team starts, 'auto' = auto-detect from API
 const vetoStartOverrides = {};
 
+// In-memory storage for hide timer after veto setting per match
+const hideTimerAfterVetoOverrides = {};
+
 // In-memory storage for tech difficulties overlay per match
 const techDifficulties = {};
 
@@ -468,6 +471,7 @@ function cleanupOldMatches() {
             delete timerOverrides[matchId];
             delete vetoOverrides[matchId];
             delete vetoStartOverrides[matchId];
+            delete hideTimerAfterVetoOverrides[matchId];
             delete techDifficulties[matchId];
             delete matchTimestamps[matchId];
             deletedCount++;
@@ -630,12 +634,16 @@ app.get('/api/config/:matchId', (req, res) => {
     // Default: 'auto' - automatically detect from API which team starts veto
     const vetoStartSide = vetoStartOverrides[matchId] || 'auto';
     
+    // Default: false - show timer even after veto is complete
+    const hideTimerAfterVeto = hideTimerAfterVetoOverrides[matchId] || false;
+    
     res.json({
         apiKey: process.env.FACEIT_API_KEY || '',
         videoFiles: getVideoFiles(),
         partnerFiles: getPartnerFiles(),
         showVeto: showVeto,
         vetoStartSide: vetoStartSide,
+        hideTimerAfterVeto: hideTimerAfterVeto,
         refreshInterval: parseInt(process.env.REFRESH_INTERVAL) || 5000
     });
 });
@@ -703,6 +711,38 @@ app.get('/api/veto-start/:matchId', (req, res) => {
 app.delete('/api/veto-start/:matchId', requireAuth, (req, res) => {
     const { matchId } = req.params;
     delete vetoStartOverrides[matchId];
+    res.json({ success: true });
+});
+
+// API endpoint: Set hide timer after veto (protected)
+app.post('/api/hide-timer-after-veto/:matchId', requireAuth, (req, res) => {
+    const { matchId } = req.params;
+    const { hideTimer } = req.body;
+    
+    if (hideTimer === undefined) {
+        return res.status(400).json({ error: 'Missing hideTimer parameter' });
+    }
+    
+    hideTimerAfterVetoOverrides[matchId] = Boolean(hideTimer);
+    matchTimestamps[matchId] = Date.now();
+    res.json({ success: true, matchId, hideTimerAfterVeto: hideTimerAfterVetoOverrides[matchId] });
+});
+
+// API endpoint: Get hide timer after veto setting
+app.get('/api/hide-timer-after-veto/:matchId', (req, res) => {
+    const { matchId } = req.params;
+    const hideTimerAfterVeto = hideTimerAfterVetoOverrides[matchId] || false;
+    
+    res.json({
+        hideTimerAfterVeto: hideTimerAfterVeto,
+        isOverride: hideTimerAfterVetoOverrides[matchId] !== undefined
+    });
+});
+
+// API endpoint: Reset hide timer after veto setting (protected)
+app.delete('/api/hide-timer-after-veto/:matchId', requireAuth, (req, res) => {
+    const { matchId } = req.params;
+    delete hideTimerAfterVetoOverrides[matchId];
     res.json({ success: true });
 });
 

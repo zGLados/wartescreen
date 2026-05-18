@@ -5,6 +5,7 @@
         let VIDEO_FILES = [];
         let PARTNER_FILES = [];
         let VETO_START_SIDE = 'left'; // 'left' or 'right' - which team starts veto (auto-detected from API)
+        let HIDE_TIMER_AFTER_VETO = false; // Hide timer when veto is complete
 
         // Extract Match ID from URL
         const MATCH_ID = window.location.pathname.slice(1); // Remove leading "/"
@@ -20,6 +21,7 @@
                 REFRESH_INTERVAL = config.refreshInterval;
                 VIDEO_FILES = config.videoFiles;
                 PARTNER_FILES = config.partnerFiles || [];
+                HIDE_TIMER_AFTER_VETO = config.hideTimerAfterVeto || false;
                 
                 // Check if veto start side was manually set by admin
                 if (config.vetoStartSide && config.vetoStartSide !== 'auto') {
@@ -45,6 +47,7 @@
         let lastVetoCount = -1;
         let hasTimerOverride = false;
         let hasManualVetoStartSide = false; // Track if admin manually set veto start side
+        let isVetoComplete = false; // Track if veto process is complete
         let zeroTimerTimeout = null;
         let isOngoingTimerRunning = false;
         let renderedMaps = new Set(); // Track already rendered maps
@@ -475,12 +478,35 @@
             const bans = voting.drop || [];
 
             const totalActions = picks.length + bans.length;
-            if (totalActions > lastVetoCount) {
-                lastVetoCount = totalActions;
-                // Only start/restart timer if no admin override is active
-                if (!hasTimerOverride && !timerInterval) {
-                    // 3 minute timer on each new veto action
-                    startTimer(180);
+            const totalMaps = entities.length;
+            
+            // Check if veto is complete (all maps except one are picked/banned)
+            const vetoIsComplete = totalActions >= totalMaps - 1;
+            
+            // Hide timer if veto is complete and setting is enabled
+            if (HIDE_TIMER_AFTER_VETO && vetoIsComplete) {
+                if (!isVetoComplete) {
+                    // First time veto is complete - hide timer
+                    isVetoComplete = true;
+                    timerDisplay.style.display = 'none';
+                    actionDisplay.style.display = 'none';
+                }
+            } else {
+                // Show timer if veto is not complete or setting is disabled
+                if (isVetoComplete) {
+                    // Veto was complete but now is not (shouldn't happen, but handle it)
+                    isVetoComplete = false;
+                    timerDisplay.style.display = 'block';
+                    actionDisplay.style.display = 'block';
+                }
+                
+                if (totalActions > lastVetoCount) {
+                    lastVetoCount = totalActions;
+                    // Only start/restart timer if no admin override is active
+                    if (!hasTimerOverride && !timerInterval) {
+                        // 3 minute timer on each new veto action
+                        startTimer(180);
+                    }
                 }
             }
 
@@ -501,7 +527,6 @@
 
             // Sort maps based on veto process and create veto order
             const bestOf = data.best_of || 1;
-            const totalMaps = entities.length;
             
             // Define standard veto patterns based on best_of
             let vetoPattern = [];
