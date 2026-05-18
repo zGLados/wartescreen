@@ -202,5 +202,142 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // Load configuration from server
+        let VIDEO_FILES = [];
+
+        // Load config from server
+        async function loadConfig() {
+            try {
+                const videosRes = await fetch('/api/videos');
+                VIDEO_FILES = await videosRes.json();
+                
+                console.log('[Roster] Loaded', VIDEO_FILES.length, 'videos');
+                
+                // Initialize after loading config
+                initBackgroundVideo();
+            } catch (error) {
+                console.error('Failed to load config:', error);
+                VIDEO_FILES = [];
+                initBackgroundVideo();
+            }
+        }
+
+        let currentVideoIndex = 0;
+        let isLoadingVideo = false;
+
+        function initBackgroundVideo() {
+            if (VIDEO_FILES && VIDEO_FILES.length > 0) {
+                initLocalVideos();
+            }
+        }
+
+        // Initialize local videos
+        function initLocalVideos() {
+            const videoElement = document.getElementById('bg-video-local');
+            videoElement.style.display = 'block';
+            
+            if (videoElement && VIDEO_FILES.length > 0) {
+                // Random start video
+                currentVideoIndex = Math.floor(Math.random() * VIDEO_FILES.length);
+                
+                videoElement.addEventListener('ended', playNextLocalVideo);
+                videoElement.addEventListener('error', (e) => {
+                    console.error('Video error:', e);
+                    isLoadingVideo = false;
+                    setTimeout(playNextLocalVideo, 1000);
+                });
+                
+                // Page Visibility API
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) {
+                        videoElement.pause();
+                        console.log('[Video] Page hidden - paused');
+                    } else {
+                        if (!isLoadingVideo && videoElement.paused) {
+                            videoElement.play().catch(err => console.log('[Video] Resume failed:', err));
+                            console.log('[Video] Page visible - resumed');
+                        }
+                    }
+                });
+                
+                // Start video immediately (works in OBS and normal browsers)
+                playNextLocalVideo();
+                console.log('[Video] Starting video (visibility:', document.hidden ? 'hidden' : 'visible', ')');
+                
+                // Fallback: If video hasn't started after 5 seconds, force start
+                setTimeout(() => {
+                    if (videoElement.paused && !isLoadingVideo) {
+                        console.warn('[Video] Fallback: forcing video start');
+                        playNextLocalVideo();
+                    }
+                }, 5000);
+            }
+        }
+
+        function playNextLocalVideo() {
+            if (isLoadingVideo) return;
+            
+            const videoElement = document.getElementById('bg-video-local');
+            if (!videoElement || VIDEO_FILES.length === 0) return;
+            
+            // Choose another random video (not the same)
+            if (VIDEO_FILES.length > 1) {
+                let newIndex;
+                do {
+                    newIndex = Math.floor(Math.random() * VIDEO_FILES.length);
+                } while (newIndex === currentVideoIndex);
+                currentVideoIndex = newIndex;
+            }
+            
+            isLoadingVideo = true;
+            let loadingTimeout = null;
+            let hasStartedPlaying = false;
+            
+            // Clear old source
+            videoElement.pause();
+            videoElement.removeAttribute('src');
+            videoElement.load();
+            
+            // Set new video source (URL-encode)
+            const videoFileName = encodeURIComponent(VIDEO_FILES[currentVideoIndex]);
+            videoElement.src = `/videos/${videoFileName}`;
+            videoElement.preload = 'auto';
+            
+            const startPlayback = () => {
+                if (hasStartedPlaying) return;
+                hasStartedPlaying = true;
+                if (loadingTimeout) clearTimeout(loadingTimeout);
+                videoElement.play().catch(err => {
+                    console.log('Autoplay prevented:', err);
+                    isLoadingVideo = false;
+                });
+                isLoadingVideo = false;
+            };
+            
+            videoElement.addEventListener('canplaythrough', function onCanPlayThrough() {
+                videoElement.removeEventListener('canplaythrough', onCanPlayThrough);
+                startPlayback();
+            }, { once: true });
+            
+            setTimeout(() => {
+                if (!hasStartedPlaying && videoElement.readyState >= 3) {
+                    startPlayback();
+                }
+            }, 3000);
+            
+            loadingTimeout = setTimeout(() => {
+                if (!hasStartedPlaying) {
+                    console.warn('Video timeout, skipping');
+                    isLoadingVideo = false;
+                    playNextLocalVideo();
+                }
+            }, 30000);
+        }
+
+        // Config laden und App starten
+        loadConfig();
+    </script>
 </body>
 </html>
