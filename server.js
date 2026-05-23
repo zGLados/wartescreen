@@ -20,6 +20,13 @@ const playerStatsCache = new Map();
 const pastMatchesCache = new Map();
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
+// Manual overrides
+const timerOverrides = new Map(); // For manual timer control
+const vetoOverrides = new Map(); // For manual veto control (show/hide)
+const vetoStartOverrides = new Map(); // For manual veto start side control
+const hideTimerAfterVetoOverrides = new Map(); // For hiding timer after veto completion
+const manualVetoData = new Map(); // For manual pick/ban data (complete veto override)
+
 // List of players to track
 const TRACKED_PLAYERS = [
     { id: 'Aindrew', name: 'Aindrew' },
@@ -399,13 +406,33 @@ setTimeout(() => {
 
 // Middleware for JSON and static files
 app.use(express.json());
+
+// Content Security Policy middleware
+app.use((req, res, next) => {
+    res.setHeader(
+        'Content-Security-Policy',
+        [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: https: http:",
+            "font-src 'self' data:",
+            "connect-src 'self' https://open.faceit.com",
+            "media-src 'self' blob:",
+            "frame-src 'self' https://www.youtube.com",
+            "object-src 'none'",
+            "base-uri 'self'"
+        ].join('; ')
+    );
+    next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ========== URL REDIRECTS FOR REORGANIZED FILES ==========
 // Redirect old URLs to new organized structure
 
 // Scene redirects
-app.get('/viewer.html', (req, res) => res.redirect(301, '/scenes/viewer.html'));
 app.get('/past-matches.html', (req, res) => res.redirect(301, '/scenes/past-matches.html'));
 app.get('/upcoming-matches.html', (req, res) => res.redirect(301, '/scenes/upcoming-matches.html'));
 
@@ -462,18 +489,8 @@ app.use('/videos', (req, res, next) => {
     res.status(404).send('Video not found');
 });
 
-// In-memory storage for timer overrides (can be moved to a DB later)
-const timerOverrides = {};
-
-// In-memory storage for veto overrides per match
-const vetoOverrides = {};
-
-// In-memory storage for veto start side per match ('left', 'right', or 'auto')
-// 'left' = left team starts, 'right' = right team starts, 'auto' = auto-detect from API
-const vetoStartOverrides = {};
-
-// In-memory storage for hide timer after veto setting per match
-const hideTimerAfterVetoOverrides = {};
+// Note: Timer and veto overrides are defined at the top of the file as Map()
+// Old object-based storage removed to use consistent Map() approach
 
 // In-memory storage for tech difficulties overlay per match
 const techDifficulties = {};
@@ -491,10 +508,10 @@ function cleanupOldMatches() {
     for (const matchId in matchTimestamps) {
         const age = now - matchTimestamps[matchId];
         if (age > maxAge) {
-            delete timerOverrides[matchId];
-            delete vetoOverrides[matchId];
-            delete vetoStartOverrides[matchId];
-            delete hideTimerAfterVetoOverrides[matchId];
+            timerOverrides.delete(matchId);
+            vetoOverrides.delete(matchId);
+            vetoStartOverrides.delete(matchId);
+            hideTimerAfterVetoOverrides.delete(matchId);
             delete techDifficulties[matchId];
             delete matchTimestamps[matchId];
             deletedCount++;
@@ -930,13 +947,13 @@ app.get('/api/config/:matchId', (req, res) => {
     
     // Default showVeto to true, unless explicitly set to 'false'
     const baseShowVeto = process.env.SHOW_VETO === 'false' ? false : true;
-    const showVeto = vetoOverrides[matchId] !== undefined ? vetoOverrides[matchId] : baseShowVeto;
+    const showVeto = vetoOverrides.has(matchId) ? vetoOverrides.get(matchId) : baseShowVeto;
     
     // Default: 'auto' - automatically detect from API which team starts veto
-    const vetoStartSide = vetoStartOverrides[matchId] || 'auto';
+    const vetoStartSide = vetoStartOverrides.get(matchId) || 'auto';
     
     // Default: false - show timer even after veto is complete
-    const hideTimerAfterVeto = hideTimerAfterVetoOverrides[matchId] || false;
+    const hideTimerAfterVeto = hideTimerAfterVetoOverrides.get(matchId) || false;
     
     res.json({
         apiKey: process.env.FACEIT_API_KEY || '',
@@ -958,9 +975,9 @@ app.post('/api/veto/:matchId', requireAuth, (req, res) => {
         return res.status(400).json({ error: 'Missing showVeto parameter' });
     }
     
-    vetoOverrides[matchId] = Boolean(showVeto);
+    vetoOverrides.set(matchId, Boolean(showVeto));
     matchTimestamps[matchId] = Date.now(); // Timestamp for cleanup
-    res.json({ success: true, matchId, showVeto: vetoOverrides[matchId] });
+    res.json({ success: true, matchId, showVeto: vetoOverrides.get(matchId) });
 });
 
 // API endpoint: Get veto setting
@@ -968,18 +985,18 @@ app.get('/api/veto/:matchId', (req, res) => {
     const { matchId } = req.params;
     // Default showVeto to true, unless explicitly set to 'false'
     const baseShowVeto = process.env.SHOW_VETO === 'false' ? false : true;
-    const showVeto = vetoOverrides[matchId] !== undefined ? vetoOverrides[matchId] : baseShowVeto;
+    const showVeto = vetoOverrides.has(matchId) ? vetoOverrides.get(matchId) : baseShowVeto;
     
     res.json({
         showVeto: showVeto,
-        isOverride: vetoOverrides[matchId] !== undefined
+        isOverride: vetoOverrides.has(matchId)
     });
 });
 
 // API endpoint: Reset veto setting (protected)
 app.delete('/api/veto/:matchId', requireAuth, (req, res) => {
     const { matchId } = req.params;
-    delete vetoOverrides[matchId];
+    vetoOverrides.delete(matchId);
     res.json({ success: true });
 });
 
@@ -992,7 +1009,7 @@ app.post('/api/veto-start/:matchId', requireAuth, (req, res) => {
         return res.status(400).json({ error: 'Invalid side parameter. Must be "left", "right", or "auto"' });
     }
     
-    vetoStartOverrides[matchId] = side;
+    vetoStartOverrides.set(matchId, side);
     matchTimestamps[matchId] = Date.now();
     res.json({ success: true, matchId, vetoStartSide: side });
 });
@@ -1011,7 +1028,7 @@ app.get('/api/veto-start/:matchId', (req, res) => {
 // API endpoint: Reset veto start side (protected)
 app.delete('/api/veto-start/:matchId', requireAuth, (req, res) => {
     const { matchId } = req.params;
-    delete vetoStartOverrides[matchId];
+    vetoStartOverrides.delete(matchId);
     res.json({ success: true });
 });
 
@@ -1024,9 +1041,9 @@ app.post('/api/hide-timer-after-veto/:matchId', requireAuth, (req, res) => {
         return res.status(400).json({ error: 'Missing hideTimer parameter' });
     }
     
-    hideTimerAfterVetoOverrides[matchId] = Boolean(hideTimer);
+    hideTimerAfterVetoOverrides.set(matchId, Boolean(hideTimer));
     matchTimestamps[matchId] = Date.now();
-    res.json({ success: true, matchId, hideTimerAfterVeto: hideTimerAfterVetoOverrides[matchId] });
+    res.json({ success: true, matchId, hideTimerAfterVeto: hideTimerAfterVetoOverrides.get(matchId) });
 });
 
 // API endpoint: Get hide timer after veto setting
@@ -1043,7 +1060,7 @@ app.get('/api/hide-timer-after-veto/:matchId', (req, res) => {
 // API endpoint: Reset hide timer after veto setting (protected)
 app.delete('/api/hide-timer-after-veto/:matchId', requireAuth, (req, res) => {
     const { matchId } = req.params;
-    delete hideTimerAfterVetoOverrides[matchId];
+    hideTimerAfterVetoOverrides.delete(matchId);
     res.json({ success: true });
 });
 
@@ -1056,10 +1073,10 @@ app.post('/api/timer/:matchId', requireAuth, (req, res) => {
         return res.status(400).json({ error: 'Invalid duration' });
     }
     
-    timerOverrides[matchId] = {
+    timerOverrides.set(matchId, {
         duration: parseInt(duration),
         timestamp: Date.now()
-    };
+    });
     matchTimestamps[matchId] = Date.now(); // Timestamp for cleanup
     
     res.json({ success: true, matchId, duration: parseInt(duration) });
@@ -1068,7 +1085,7 @@ app.post('/api/timer/:matchId', requireAuth, (req, res) => {
 // API endpoint: Get timer override
 app.get('/api/timer/:matchId', (req, res) => {
     const { matchId } = req.params;
-    const override = timerOverrides[matchId];
+    const override = timerOverrides.get(matchId);
     
     if (!override) {
         return res.json({ hasOverride: false });
@@ -1089,7 +1106,7 @@ app.get('/api/timer/:matchId', (req, res) => {
 // API endpoint: Delete timer override (protected)
 app.delete('/api/timer/:matchId', requireAuth, (req, res) => {
     const { matchId } = req.params;
-    delete timerOverrides[matchId];
+    timerOverrides.delete(matchId);
     res.json({ success: true });
 });
 
@@ -1113,6 +1130,79 @@ app.get('/api/tech-difficulties/:matchId', (req, res) => {
     const active = techDifficulties[matchId] || false;
     res.json({ active });
 });
+
+// ========== MANUAL VETO DATA ENDPOINTS ==========
+// API endpoint: Set manual veto data (protected)
+app.post('/api/manual-veto/:matchId', requireAuth, (req, res) => {
+    const { matchId } = req.params;
+    const { vetoData } = req.body;
+    
+    if (!vetoData || !Array.isArray(vetoData)) {
+        return res.status(400).json({ 
+            success: false,
+            error: 'Missing or invalid vetoData parameter. Expected array of veto items.' 
+        });
+    }
+    
+    // Validate veto data structure
+    for (const item of vetoData) {
+        if (!item.map || !item.type || !item.team) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Invalid veto item structure. Each item needs: map, type (ban/pick/decider), team (team1/team2)' 
+            });
+        }
+    }
+    
+    manualVetoData.set(matchId, {
+        vetoData: vetoData,
+        timestamp: Date.now()
+    });
+    
+    console.log(`[Manual Veto] Set for match ${matchId}:`, vetoData);
+    
+    res.json({ 
+        success: true, 
+        matchId, 
+        vetoData: vetoData 
+    });
+});
+
+// API endpoint: Get manual veto data
+app.get('/api/manual-veto/:matchId', (req, res) => {
+    const { matchId } = req.params;
+    const data = manualVetoData.get(matchId);
+    
+    if (!data) {
+        return res.json({ 
+            hasManualVeto: false 
+        });
+    }
+    
+    res.json({
+        hasManualVeto: true,
+        vetoData: data.vetoData,
+        timestamp: data.timestamp
+    });
+});
+
+// API endpoint: Delete manual veto data (protected)
+app.delete('/api/manual-veto/:matchId', requireAuth, (req, res) => {
+    const { matchId } = req.params;
+    const existed = manualVetoData.has(matchId);
+    
+    manualVetoData.delete(matchId);
+    
+    console.log(`[Manual Veto] Cleared for match ${matchId}`);
+    
+    res.json({ 
+        success: true, 
+        matchId,
+        wasActive: existed
+    });
+});
+
+// ========== END MANUAL VETO DATA ENDPOINTS ==========
 
 // Admin interface (protected)
 app.get('/admin', requireAuth, (req, res) => {

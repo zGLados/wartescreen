@@ -14,6 +14,17 @@
         async function loadConfig() {
             try {
                 const response = await fetch(`/api/config/${MATCH_ID}`);
+                
+                // Check if response is OK and contains JSON
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error('Server did not return JSON');
+                }
+                
                 const config = await response.json();
                 
                 API_KEY = config.apiKey;
@@ -381,6 +392,11 @@
             }
 
             try {
+                // Check for manual veto data first
+                const manualVetoResponse = await fetch(`/api/manual-veto/${MATCH_ID}`);
+                const manualVetoData = await manualVetoResponse.json();
+                
+                // Fetch FACEIT API data
                 const apiUrl = `https://open.faceit.com/data/v4/matches/${MATCH_ID}`;
                 const response = await fetch(apiUrl, {
                     headers: { 'Authorization': `Bearer ${API_KEY}` }
@@ -395,7 +411,13 @@
                 // Check timer override with scheduled_at
                 await checkTimerOverride(data.scheduled_at);
                 
-                renderVeto(data);
+                // Use manual veto if available, otherwise use FACEIT API data
+                if (manualVetoData.hasManualVeto) {
+                    console.log('[Manual Veto] Using manual veto data');
+                    renderManualVeto(data, manualVetoData.vetoData);
+                } else {
+                    renderVeto(data);
+                }
             } catch (error) {
                 console.error("FACEIT API Error:", error);
                 actionDisplay.textContent = `Failed to connect to FACEIT: ${error.message}`;
@@ -654,6 +676,102 @@
             existingCards.forEach(card => card.remove());
 
             updateStatusText(data);
+        }
+
+        function renderManualVeto(data, vetoData) {
+            // Manual veto mode - display custom picks/bans without timer control
+            console.log('[Manual Veto] Rendering manual veto data:', vetoData);
+            
+            // Show map grid
+            if (!mapGridInitialized) {
+                mapGrid.style.display = 'flex';
+                mapGridInitialized = true;
+            }
+
+            const teams = [data.teams.faction1, data.teams.faction2];
+            const tacamIndex = teams.findIndex(t => t.name.toLowerCase().includes("tacam"));
+            
+            // Sort teams for display (TacAM always left/home)
+            if (tacamIndex === 1) teams.reverse();
+            const [team1Data, team2Data] = teams;
+
+            team1Display.textContent = team1Data.name;
+            team2Display.textContent = team2Data.name;
+            team1Logo.src = team1Data.avatar || 'https://via.placeholder.com/100?text=' + encodeURIComponent(team1Data.name);
+            team2Logo.src = team2Data.avatar || '/logo_T_default.png';
+
+            leagueDisplay.textContent = data.competition_name || "FACEIT Match";
+            formatDisplay.textContent = `Best of ${data.best_of || '?'}`;
+
+            // Convert manual veto data to map display format
+            const mapStates = {};
+            vetoData.forEach(item => {
+                const mapName = item.map.toUpperCase();
+                const team = item.team; // 'team1' or 'team2'
+                
+                if (item.type === 'ban') {
+                    mapStates[mapName] = { banned: true, team };
+                } else if (item.type === 'pick') {
+                    mapStates[mapName] = { picked: true, team };
+                } else if (item.type === 'decider') {
+                    mapStates[mapName] = { decider: true };
+                }
+            });
+
+            // Render maps based on manual veto data
+            const allMaps = ['ANCIENT', 'ANUBIS', 'DUST2', 'INFERNO', 'MIRAGE', 'NUKE', 'OVERPASS'];
+            
+            allMaps.forEach(mapName => {
+                let mapCard = document.getElementById(`map-${mapName}`);
+                const mapState = mapStates[mapName];
+
+                if (!mapCard) {
+                    mapCard = document.createElement('div');
+                    mapCard.id = `map-${mapName}`;
+                    mapCard.className = 'map-card';
+                    mapCard.innerHTML = `
+                        <div class="map-image" style="background-image: url('/maps/CS2_de_${mapName.toLowerCase()}.png')"></div>
+                        <div class="map-name">${mapName}</div>
+                        <div class="map-status"></div>
+                    `;
+                    mapGrid.appendChild(mapCard);
+                }
+
+                const statusElement = mapCard.querySelector('.map-status');
+
+                if (mapState) {
+                    if (mapState.banned) {
+                        mapCard.classList.add('banned');
+                        mapCard.classList.remove('picked', 'decider');
+                        const teamName = mapState.team === 'team1' ? team1Data.name : team2Data.name;
+                        statusElement.textContent = `${teamName} BAN`;
+                        statusElement.classList.add('status-banned');
+                        statusElement.classList.remove('status-picked', 'status-decider');
+                    } else if (mapState.picked) {
+                        mapCard.classList.add('picked');
+                        mapCard.classList.remove('banned', 'decider');
+                        const teamName = mapState.team === 'team1' ? team1Data.name : team2Data.name;
+                        statusElement.textContent = `${teamName} PICK`;
+                        statusElement.classList.add('status-picked');
+                        statusElement.classList.remove('status-banned', 'status-decider');
+                    } else if (mapState.decider) {
+                        mapCard.classList.add('decider');
+                        mapCard.classList.remove('banned', 'picked');
+                        statusElement.textContent = 'DECIDER';
+                        statusElement.classList.add('status-decider');
+                        statusElement.classList.remove('status-banned', 'status-picked');
+                    }
+                } else {
+                    // No action for this map
+                    mapCard.classList.remove('banned', 'picked', 'decider');
+                    statusElement.textContent = '';
+                    statusElement.classList.remove('status-banned', 'status-picked', 'status-decider');
+                }
+            });
+
+            // Timer still works independently (manual timer or automatic)
+            // Only the veto display is overridden
+            actionDisplay.textContent = 'Manual Veto Mode - Timer runs independently';
         }
 
         function renderSimpleCountdown(data) {

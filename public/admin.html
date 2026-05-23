@@ -24,7 +24,7 @@
         }
 
         .container {
-            max-width: 800px;
+            max-width: 1600px;
             margin: 0 auto;
         }
 
@@ -36,12 +36,50 @@
             letter-spacing: 2px;
         }
 
+        /* Grid Layout für Kacheln */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .grid-full {
+            grid-column: 1 / -1;
+        }
+
         .card {
             background: var(--card-bg);
             border-radius: 8px;
             padding: 25px;
-            margin-bottom: 20px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            height: fit-content;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+            border-color: rgba(200, 55, 55, 0.3);
+        }
+
+        /* Compact card styling for better space usage */
+        .card .section-title {
+            margin-bottom: 20px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .grid-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (min-width: 1400px) {
+            .grid-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
 
         .form-group {
@@ -256,175 +294,257 @@
     <div class="container">
         <h1>🎮 Admin Timer Control</h1>
 
-        <div class="card">
-            <h2 class="section-title">Match ID Input</h2>
-            <div class="form-group">
-                <label for="matchId">Match ID or FACEIT Matchroom Link</label>
-                <input 
-                    type="text" 
-                    id="matchId" 
-                    placeholder="e.g. 1-3f08de52-... or https://www.faceit.com/en/cs2/room/1-..."
-                >
-                <small style="color: #888; font-size: 0.85rem; margin-top: 5px; display: block;">
-                    Supported: Match-ID (1-abc-...) or complete FACEIT Matchroom Link
-                </small>
-            </div>
+        <!-- Match ID Input (Full Width) -->
+        <div class="grid-container">
+            <div class="card grid-full">
+                <h2 class="section-title">Match ID Input</h2>
+                <div class="form-group">
+                    <label for="matchId">Match ID or FACEIT Matchroom Link</label>
+                    <input 
+                        type="text" 
+                        id="matchId" 
+                        placeholder="e.g. 1-3f08de52-... or https://www.faceit.com/en/cs2/room/1-..."
+                    >
+                    <small style="color: #888; font-size: 0.85rem; margin-top: 5px; display: block;">
+                        Supported: Match-ID (1-abc-...) or complete FACEIT Matchroom Link
+                    </small>
+                </div>
 
-            <div class="info-box" id="viewerLinkBox" style="display: none;">
-                <h3>📺 Viewer Link</h3>
-                <div class="viewer-link" id="viewerLink"></div>
-                <button class="copy-btn" onclick="copyViewerLink()">Copy Link</button>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2 class="section-title">Timer Settings</h2>
-            
-            <div class="form-group">
-                <label for="timerDuration">Timer Duration (Seconds)</label>
-                <input 
-                    type="number" 
-                    id="timerDuration" 
-                    placeholder="e.g. 60" 
-                    min="0"
-                    value="60"
-                >
-                <div class="quick-times">
-                    <button class="quick-time-btn" onclick="setQuickTime(30)">30s</button>
-                    <button class="quick-time-btn" onclick="setQuickTime(60)">1min</button>
-                    <button class="quick-time-btn" onclick="setQuickTime(120)">2min</button>
-                    <button class="quick-time-btn" onclick="setQuickTime(300)">5min</button>
-                    <button class="quick-time-btn" onclick="setQuickTime(600)">10min</button>
-                    <button class="quick-time-btn" onclick="setQuickTime(900)">15min</button>
+                <div class="info-box" id="viewerLinkBox" style="display: none;">
+                    <h3>📺 Viewer Link</h3>
+                    <div class="viewer-link" id="viewerLink"></div>
+                    <button class="copy-btn" onclick="copyViewerLink()">Copy Link</button>
                 </div>
             </div>
-
-            <div class="preview-timer" id="previewTimer">01:00</div>
-
-            <div class="btn-group">
-                <button class="btn btn-primary" onclick="setTimer()">Set/Update Timer</button>
-                <button class="btn btn-danger" onclick="clearTimer()">Clear Timer</button>
-            </div>
-
-            <div id="statusMessage" class="status-message"></div>
         </div>
 
-        <div class="card">
-            <h2 class="section-title">Technical Difficulties Overlay</h2>
-            
-            <div class="form-group">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="techDiffCheckbox" onchange="updateTechDiffPreview()" style="margin-right: 10px;">
-                    Show Technical Difficulties Screen
-                </label>
-                <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
-                    Enabled = Technical pause/interruption screen is shown<br>
-                    Disabled = Normal match display
-                </p>
+        <!-- Timer & Tech Difficulties (Side by Side) -->
+        <div class="grid-container">
+            <div class="card">
+                <h2 class="section-title">Timer Settings</h2>
+                
+                <div class="form-group">
+                    <label for="timerDuration">Timer Duration (Seconds)</label>
+                    <input 
+                        type="number" 
+                        id="timerDuration" 
+                        placeholder="e.g. 60" 
+                        min="0"
+                        value="60"
+                    >
+                    <div class="quick-times">
+                        <button class="quick-time-btn" onclick="setQuickTime(30)">30s</button>
+                        <button class="quick-time-btn" onclick="setQuickTime(60)">1min</button>
+                        <button class="quick-time-btn" onclick="setQuickTime(120)">2min</button>
+                        <button class="quick-time-btn" onclick="setQuickTime(300)">5min</button>
+                        <button class="quick-time-btn" onclick="setQuickTime(600)">10min</button>
+                        <button class="quick-time-btn" onclick="setQuickTime(900)">15min</button>
+                    </div>
+                </div>
+
+                <div class="preview-timer" id="previewTimer">01:00</div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="setTimer()">Set/Update Timer</button>
+                    <button class="btn btn-danger" onclick="clearTimer()">Clear Timer</button>
+                </div>
+
+                <div id="statusMessage" class="status-message"></div>
             </div>
 
-            <div class="btn-group">
-                <button class="btn btn-danger" onclick="toggleTechDifficulties()">Toggle Technical Pause</button>
-            </div>
-
-            <div id="techDiffStatusMessage" class="status-message"></div>
-        </div>
-
-        <div class="card">
-            <h2 class="section-title">Pick/Ban Anzeige (Veto)</h2>
-            
-            <div class="form-group">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="showVetoCheckbox" onchange="updateVetoPreview()" style="margin-right: 10px;" checked>
-                    Show Pick/Ban Veto
-                </label>
-                <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
-                    Enabled = Map veto with Pick/Ban is displayed<br>
-                    Disabled = Only teams, timer and match info
-                </p>
-            </div>
-            </div>
-
-            <div class="btn-group">
-                <button class="btn btn-success" onclick="saveVetoSetting()">Save Veto Setting</button>
-                <button class="btn btn-danger" onclick="resetVetoSetting()">Reset to Default</button>
-            </div>
-
-            <div id="vetoStatusMessage" class="status-message"></div>
-        </div>
-
-        <div class="card">
-            <h2 class="section-title">Veto Start Order</h2>
-            
-            <div class="form-group">
-                <label>Which team starts the Veto (Pick/Ban)?</label>
-                <div style="margin-top: 15px;">
-                    <label class="checkbox-label" style="margin-bottom: 10px;">
-                        <input type="radio" name="vetoStart" id="vetoStartAuto" value="auto" style="margin-right: 10px;" checked>
-                        Auto-detect from API (Recommended)
-                    </label>
-                    <label class="checkbox-label" style="margin-bottom: 10px;">
-                        <input type="radio" name="vetoStart" id="vetoStartLeft" value="left" style="margin-right: 10px;">
-                        Force Left Team (Home) to start first
-                    </label>
+            <div class="card">
+                <h2 class="section-title">Technical Difficulties Overlay</h2>
+                
+                <div class="form-group">
                     <label class="checkbox-label">
-                        <input type="radio" name="vetoStart" id="vetoStartRight" value="right" style="margin-right: 10px;">
-                        Force Right Team (Away) to start first
+                        <input type="checkbox" id="techDiffCheckbox" onchange="updateTechDiffPreview()" style="margin-right: 10px;">
+                        Show Technical Difficulties Screen
+                    </label>
+                    <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
+                        Enabled = Technical pause/interruption screen is shown<br>
+                        Disabled = Normal match display
+                    </p>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-danger" onclick="toggleTechDifficulties()">Toggle Technical Pause</button>
+                </div>
+
+                <div id="techDiffStatusMessage" class="status-message"></div>
+            </div>
+        </div>
+
+        <!-- Veto Settings (Side by Side) -->
+        <div class="grid-container">
+            <div class="card">
+                <h2 class="section-title">Pick/Ban Anzeige (Veto)</h2>
+                
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="showVetoCheckbox" onchange="updateVetoPreview()" style="margin-right: 10px;" checked>
+                        Show Pick/Ban Veto
+                    </label>
+                    <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
+                        Enabled = Map veto with Pick/Ban is displayed<br>
+                        Disabled = Only teams, timer and match info
+                    </p>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="saveVetoSetting()">Save Veto Setting</button>
+                    <button class="btn btn-danger" onclick="resetVetoSetting()">Reset to Default</button>
+                </div>
+
+                <div id="vetoStatusMessage" class="status-message"></div>
+            </div>
+
+            <div class="card">
+                <h2 class="section-title">Veto Start Order</h2>
+                
+                <div class="form-group">
+                    <label>Which team starts the Veto (Pick/Ban)?</label>
+                    <div style="margin-top: 15px;">
+                        <label class="checkbox-label" style="margin-bottom: 10px;">
+                            <input type="radio" name="vetoStart" id="vetoStartAuto" value="auto" style="margin-right: 10px;" checked>
+                            Auto-detect from API (Recommended)
+                        </label>
+                        <label class="checkbox-label" style="margin-bottom: 10px;">
+                            <input type="radio" name="vetoStart" id="vetoStartLeft" value="left" style="margin-right: 10px;">
+                            Force Left Team (Home) to start first
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="radio" name="vetoStart" id="vetoStartRight" value="right" style="margin-right: 10px;">
+                            Force Right Team (Away) to start first
+                        </label>
+                    </div>
+                    <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
+                        This controls which team picks/bans first in the veto process.<br>
+                        <strong>Auto (Default):</strong> Automatically detects from FACEIT API data<br>
+                        <strong>Force:</strong> Manually override the API detection
+                    </p>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="saveVetoStart()">Save Veto Start Order</button>
+                    <button class="btn btn-danger" onclick="resetVetoStart()">Reset to Auto-Detect</button>
+                </div>
+
+                <div id="vetoStartStatusMessage" class="status-message"></div>
+            </div>
+
+            <div class="card">
+                <h2 class="section-title">Timer Display After Veto</h2>
+                
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="hideTimerAfterVetoCheckbox" onchange="updateHideTimerPreview()" style="margin-right: 10px;">
+                        Hide timer and countdown after veto is complete
+                    </label>
+                    <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
+                        <strong>Enabled:</strong> Timer disappears once all picks/bans are done - only maps remain visible<br>
+                        <strong>Disabled (Default):</strong> Timer continues to run even after veto completion
+                    </p>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="saveHideTimerAfterVeto()">Save Timer Setting</button>
+                    <button class="btn btn-danger" onclick="resetHideTimerAfterVeto()">Reset to Default</button>
+                </div>
+
+                <div id="hideTimerAfterVetoStatusMessage" class="status-message"></div>
+            </div>
+        </div>
+
+        <!-- Manual Veto (Full Width) -->
+        <div class="grid-container">
+            <div class="card grid-full">
+                <h2 class="section-title">🎯 Manual Veto Picks/Bans</h2>
+                
+                <div class="form-group">
+                    <p style="font-size: 0.95rem; color: #aaa; margin-bottom: 20px;">
+                        <strong>Override FACEIT API veto data with manual picks/bans.</strong><br>
+                        • Does NOT affect the timer - only the map veto display<br>
+                        • Activate to manually control which team picked/banned which map<br>
+                        • Useful when FACEIT API data is incorrect or delayed
+                    </p>
+                    
+                    <label class="checkbox-label" style="margin-bottom: 20px;">
+                        <input type="checkbox" id="manualVetoEnabled" onchange="toggleManualVeto()" style="margin-right: 10px;">
+                        Enable Manual Veto Mode
                     </label>
                 </div>
-                <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
-                    This controls which team picks/bans first in the veto process.<br>
-                    <strong>Auto (Default):</strong> Automatically detects from FACEIT API data<br>
-                    <strong>Force:</strong> Manually override the API detection
-                </p>
-            </div>
 
-            <div class="btn-group">
-                <button class="btn btn-success" onclick="saveVetoStart()">Save Veto Start Order</button>
-                <button class="btn btn-danger" onclick="resetVetoStart()">Reset to Auto-Detect</button>
-            </div>
+                <div id="manualVetoControls" style="display: none;">
+                    <div class="form-group">
+                        <label>Team Names</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="team1Name" placeholder="Team 1 Name" style="flex: 1;">
+                            <input type="text" id="team2Name" placeholder="Team 2 Name" style="flex: 1;">
+                        </div>
+                    </div>
 
-            <div id="vetoStartStatusMessage" class="status-message"></div>
+                    <div class="form-group">
+                        <label>Add Veto Item</label>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <select id="vetoMap" style="flex: 1; min-width: 150px;">
+                                <option value="ANCIENT">Ancient</option>
+                                <option value="ANUBIS">Anubis</option>
+                                <option value="DUST2">Dust2</option>
+                                <option value="INFERNO">Inferno</option>
+                                <option value="MIRAGE">Mirage</option>
+                                <option value="NUKE">Nuke</option>
+                                <option value="OVERPASS">Overpass</option>
+                                <option value="VERTIGO">Vertigo</option>
+                            </select>
+                            <select id="vetoType" style="flex: 1; min-width: 120px;">
+                                <option value="ban">Ban</option>
+                                <option value="pick">Pick</option>
+                                <option value="decider">Decider</option>
+                            </select>
+                            <select id="vetoTeam" style="flex: 1; min-width: 120px;">
+                                <option value="team1">Team 1</option>
+                                <option value="team2">Team 2</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="addVetoItem()" style="flex-shrink: 0;">Add</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Current Veto Sequence</label>
+                        <div id="vetoList" style="background: #0f1722; padding: 15px; border-radius: 4px; min-height: 100px;">
+                            <p style="color: #888; text-align: center;">No veto items added yet</p>
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-success" onclick="saveManualVeto()">Save Manual Veto</button>
+                        <button class="btn btn-danger" onclick="clearManualVeto()">Clear All</button>
+                    </div>
+                </div>
+
+                <div id="manualVetoStatusMessage" class="status-message"></div>
+            </div>
         </div>
 
-        <div class="card">
-            <h2 class="section-title">Timer Display After Veto</h2>
-            
-            <div class="form-group">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="hideTimerAfterVetoCheckbox" onchange="updateHideTimerPreview()" style="margin-right: 10px;">
-                    Hide timer and countdown after veto is complete
-                </label>
-                <p style="margin-top: 10px; font-size: 0.9rem; color: #aaa;">
-                    <strong>Enabled:</strong> Timer disappears once all picks/bans are done - only maps remain visible<br>
-                    <strong>Disabled (Default):</strong> Timer continues to run even after veto completion
-                </p>
-            </div>
-
-            <div class="btn-group">
-                <button class="btn btn-success" onclick="saveHideTimerAfterVeto()">Save Timer Setting</button>
-                <button class="btn btn-danger" onclick="resetHideTimerAfterVeto()">Reset to Default</button>
-            </div>
-
-            <div id="hideTimerAfterVetoStatusMessage" class="status-message"></div>
-        </div>
-
-        <div class="card">
-            <h2 class="section-title">Instructions</h2>
-            <div class="info-box">
-                <p><strong>1.</strong> Enter Match ID (Format: 1-GUID)</p>
-                <p><strong>2.</strong> Select timer duration or enter manually</p>
-                <p><strong>3.</strong> Click "Set/Update Timer"</p>
-                <p><strong>4.</strong> Open viewer page with the generated link</p>
-                <p style="margin-top: 15px;"><strong>🎯 Manual Timer - ABSOLUTE PRIORITY:</strong></p>
-                <p style="margin-left: 20px;">• <strong>Manual timer overrides EVERYTHING</strong></p>
-                <p style="margin-left: 20px;">• Runs continuously - ignores veto actions, match status changes, lineup changes</p>
-                <p style="margin-left: 20px;">• Counts down to 0:00 → shows "Soon™"</p>
-                <p style="margin-left: 20px;">• Map veto is still displayed when available</p>
-                <p style="margin-left: 20px;">• Update timer anytime - changes apply within 0.5 seconds</p>
-                <p style="margin-top: 15px;"><strong>🔄 Return to Automatic Timers:</strong></p>
-                <p style="margin-left: 20px;">Click "Clear Timer" - switches back to FACEIT timers within 0.5 seconds</p>
-                <p style="margin-top: 15px;"><strong>Note:</strong> The timer is updated live on the viewer page.</p>
+        <!-- Instructions (Full Width) -->
+        <div class="grid-container">
+            <div class="card grid-full">
+                <h2 class="section-title">Instructions</h2>
+                <div class="info-box">
+                    <p><strong>1.</strong> Enter Match ID (Format: 1-GUID)</p>
+                    <p><strong>2.</strong> Select timer duration or enter manually</p>
+                    <p><strong>3.</strong> Click "Set/Update Timer"</p>
+                    <p><strong>4.</strong> Open viewer page with the generated link</p>
+                    <p style="margin-top: 15px;"><strong>🎯 Manual Timer - ABSOLUTE PRIORITY:</strong></p>
+                    <p style="margin-left: 20px;">• <strong>Manual timer overrides EVERYTHING</strong></p>
+                    <p style="margin-left: 20px;">• Runs continuously - ignores veto actions, match status changes, lineup changes</p>
+                    <p style="margin-left: 20px;">• Counts down to 0:00 → shows "Soon™"</p>
+                    <p style="margin-left: 20px;">• Map veto is still displayed when available</p>
+                    <p style="margin-left: 20px;">• Update timer anytime - changes apply within 0.5 seconds</p>
+                    <p style="margin-top: 15px;"><strong>🔄 Return to Automatic Timers:</strong></p>
+                    <p style="margin-left: 20px;">Click "Clear Timer" - switches back to FACEIT timers within 0.5 seconds</p>
+                    <p style="margin-top: 15px;"><strong>Note:</strong> The timer is updated live on the viewer page.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -443,6 +563,10 @@
         matchIdInput.addEventListener('input', () => {
             updateViewerLink();
             loadVetoSetting();
+            loadMatchTeamNames(); // Auto-load team names for manual veto
+            loadTechDifficulties();
+            loadVetoStart();
+            loadHideTimerAfterVeto();
         });
         timerDurationInput.addEventListener('input', updatePreviewTimer);
 
@@ -701,14 +825,6 @@
         // Tech Difficulties Functions
         const techDiffCheckbox = document.getElementById('techDiffCheckbox');
         const techDiffStatusMessage = document.getElementById('techDiffStatusMessage');
-
-        matchIdInput.addEventListener('input', () => {
-            updateViewerLink();
-            loadVetoSetting();
-            loadTechDifficulties();
-            loadVetoStart();
-            loadHideTimerAfterVeto();
-        });
 
         async function loadTechDifficulties() {
             const input = matchIdInput.value.trim();
@@ -1014,6 +1130,241 @@
                 hideTimerAfterVetoStatusMessage.style.display = 'none';
             }, 5000);
         }
+
+        // ========== MANUAL VETO FUNCTIONS ==========
+        let manualVetoItems = [];
+
+        function toggleManualVeto() {
+            const enabled = document.getElementById('manualVetoEnabled').checked;
+            const controls = document.getElementById('manualVetoControls');
+            controls.style.display = enabled ? 'block' : 'none';
+            
+            if (enabled) {
+                loadCurrentManualVeto();
+                loadMatchTeamNames(); // Auto-load team names when enabling manual veto
+            }
+        }
+
+        async function loadCurrentManualVeto() {
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+
+            if (!matchId) return;
+
+            try {
+                const response = await fetch(`/api/manual-veto/${matchId}`);
+                const data = await response.json();
+
+                if (data.hasManualVeto) {
+                    manualVetoItems = data.vetoData;
+                    renderVetoList();
+                    showManualVetoStatus('✓ Loaded existing manual veto data', 'success');
+                }
+            } catch (error) {
+                console.error('Error loading manual veto:', error);
+            }
+        }
+
+        function addVetoItem() {
+            const map = document.getElementById('vetoMap').value;
+            const type = document.getElementById('vetoType').value;
+            const team = document.getElementById('vetoTeam').value;
+
+            const item = { map, type, team };
+            manualVetoItems.push(item);
+            renderVetoList();
+        }
+
+        function removeVetoItem(index) {
+            manualVetoItems.splice(index, 1);
+            renderVetoList();
+        }
+
+        function moveVetoItem(index, direction) {
+            if (direction === 'up' && index > 0) {
+                [manualVetoItems[index - 1], manualVetoItems[index]] = [manualVetoItems[index], manualVetoItems[index - 1]];
+            } else if (direction === 'down' && index < manualVetoItems.length - 1) {
+                [manualVetoItems[index], manualVetoItems[index + 1]] = [manualVetoItems[index + 1], manualVetoItems[index]];
+            }
+            renderVetoList();
+        }
+
+        function renderVetoList() {
+            const vetoList = document.getElementById('vetoList');
+            
+            if (manualVetoItems.length === 0) {
+                vetoList.innerHTML = '<p style="color: #888; text-align: center;">No veto items added yet</p>';
+                return;
+            }
+
+            const typeColors = {
+                ban: '#e74c3c',
+                pick: '#2ecc71',
+                decider: '#f39c12'
+            };
+
+            const typeIcons = {
+                ban: '🚫',
+                pick: '✅',
+                decider: '⭐'
+            };
+
+            let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+            manualVetoItems.forEach((item, index) => {
+                const teamName = item.team === 'team1' ? (document.getElementById('team1Name').value || 'Team 1') : (document.getElementById('team2Name').value || 'Team 2');
+                html += `
+                    <div style="display: flex; align-items: center; gap: 10px; background: #1b2735; padding: 10px; border-radius: 4px; border-left: 4px solid ${typeColors[item.type]};">
+                        <span style="font-weight: bold; min-width: 30px;">#${index + 1}</span>
+                        <span style="flex: 1; font-weight: 600;">${typeIcons[item.type]} ${item.map}</span>
+                        <span style="color: ${typeColors[item.type]}; font-weight: 600; text-transform: uppercase; min-width: 80px;">${item.type}</span>
+                        <span style="color: #aaa; min-width: 100px;">${teamName}</span>
+                        <button onclick="moveVetoItem(${index}, 'up')" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.8rem;" ${index === 0 ? 'disabled' : ''}>↑</button>
+                        <button onclick="moveVetoItem(${index}, 'down')" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.8rem;" ${index === manualVetoItems.length - 1 ? 'disabled' : ''}>↓</button>
+                        <button onclick="removeVetoItem(${index})" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.8rem;">✕</button>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            vetoList.innerHTML = html;
+        }
+
+        async function saveManualVeto() {
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+
+            if (!matchId) {
+                showManualVetoStatus('Please enter Match ID or FACEIT Link!', 'error');
+                return;
+            }
+
+            if (manualVetoItems.length === 0) {
+                showManualVetoStatus('Please add at least one veto item!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/manual-veto/${matchId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Basic ' + btoa('admin:admin')
+                    },
+                    body: JSON.stringify({
+                        vetoData: manualVetoItems
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showManualVetoStatus(`✓ Manual veto saved! ${manualVetoItems.length} items configured`, 'success');
+                } else {
+                    showManualVetoStatus('Error: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showManualVetoStatus('Connection error: ' + error.message, 'error');
+            }
+        }
+
+        async function clearManualVeto() {
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+
+            if (!matchId) {
+                showManualVetoStatus('Please enter Match ID or FACEIT Link!', 'error');
+                return;
+            }
+
+            if (!confirm('Clear all manual veto data and return to automatic FACEIT API mode?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/manual-veto/${matchId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa('admin:admin')
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    manualVetoItems = [];
+                    renderVetoList();
+                    document.getElementById('manualVetoEnabled').checked = false;
+                    toggleManualVeto();
+                    showManualVetoStatus('✓ Manual veto cleared - back to automatic mode', 'success');
+                } else {
+                    showManualVetoStatus('Error clearing manual veto', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showManualVetoStatus('Connection error: ' + error.message, 'error');
+            }
+        }
+
+        function showManualVetoStatus(message, type) {
+            const statusMessage = document.getElementById('manualVetoStatusMessage');
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message status-${type}`;
+            statusMessage.style.display = 'block';
+
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // Auto-load team names from FACEIT API when match ID is entered
+        async function loadMatchTeamNames() {
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+
+            if (!matchId) {
+                return; // No valid match ID, skip
+            }
+
+            try {
+                // Fetch match data from FACEIT API
+                const apiKey = '84e84dc8-0f8a-4497-85ff-5d282933a213'; // Use the server's API key
+                const response = await fetch(`https://open.faceit.com/data/v4/matches/${matchId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`
+                    }
+                });
+
+                if (!response.ok) {
+                    console.log('Could not fetch match data for team names');
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (data.teams && data.teams.faction1 && data.teams.faction2) {
+                    const team1Name = data.teams.faction1.name || '';
+                    const team2Name = data.teams.faction2.name || '';
+
+                    // Auto-fill team names in manual veto section
+                    const team1Input = document.getElementById('team1Name');
+                    const team2Input = document.getElementById('team2Name');
+
+                    if (team1Input && team1Name) {
+                        team1Input.value = team1Name;
+                    }
+                    if (team2Input && team2Name) {
+                        team2Input.value = team2Name;
+                    }
+
+                    console.log(`[Auto-load] Team names loaded: ${team1Name} vs ${team2Name}`);
+                }
+            } catch (error) {
+                console.error('Error loading team names:', error);
+                // Silently fail - not critical
+            }
+        }
+
+        // ========== END MANUAL VETO FUNCTIONS ==========
 
         // Initial preview
         updatePreviewTimer();
