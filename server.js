@@ -17,6 +17,7 @@ let useProcessedVideos = false;
 
 // Player Stats Cache
 const playerStatsCache = new Map();
+const pastMatchesCache = new Map();
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 // List of players to track
@@ -573,6 +574,284 @@ app.get('/api/player-stats', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Internal server error'
+        });
+    }
+});
+
+// API endpoint: Get past matches for team
+app.get('/api/past-matches/:teamId', async (req, res) => {
+    const { teamId } = req.params;
+    const limit = parseInt(req.query.limit) || 10;
+    
+    // Check cache first
+    const cached = pastMatchesCache.get(teamId);
+    if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        console.log(`[API] Returning cached past matches for team ${teamId}`);
+        return res.json(cached.data);
+    }
+    
+    // Filter for league matches only
+    const LEAGUE_FILTER = ['s57', 'open10', 'esea', 'regular season', 'playoffs', 'kleverr'];
+    
+    try {
+        console.log(`[API] Fetching fresh past matches for team ${teamId}`);
+        
+        // Use a reference player from the team to get match history
+        const referencePlayer = 'cLn395'; // You can make this configurable
+        
+        // Fetch player data
+        const headers = {
+            'Authorization': `Bearer ${FACEIT_API_KEY}`,
+            'Accept': 'application/json'
+        };
+        
+        let playerResponse = await fetch(`https://open.faceit.com/data/v4/players?nickname=${referencePlayer}`, { headers });
+        if (!playerResponse.ok) {
+            playerResponse = await fetch(`https://open.faceit.com/data/v4/players/${referencePlayer}`, { headers });
+        }
+        const playerData = await playerResponse.json();
+        const actualPlayerId = playerData.player_id;
+        
+        // Fetch more matches to ensure we get enough league matches after filtering
+        const historyResponse = await fetch(`https://open.faceit.com/data/v4/players/${actualPlayerId}/history?game=cs2&limit=${limit * 3}`, { headers });
+        const historyData = await historyResponse.json();
+        
+        if (!historyData.items || historyData.items.length === 0) {
+            return res.json({
+                success: true,
+                matches: [],
+                message: 'No matches found'
+            });
+        }
+        
+        // Process matches and fetch detailed stats
+        const matches = [];
+        
+        for (const match of historyData.items) {
+            if (matches.length >= limit) break;
+            
+            // Filter: Only include league matches
+            const compName = (match.competition_name || '').toLowerCase();
+            const isLeagueMatch = LEAGUE_FILTER.some(keyword => compName.includes(keyword));
+            
+            // Skip non-league matches (like "Europe 5v5 Queue")
+            if (!isLeagueMatch) {
+                console.log(`[API] Skipping non-league match: ${match.competition_name}`);
+                continue;
+            }
+            
+            try {
+                // Fetch detailed match stats
+                const statsResponse = await fetch(`https://open.faceit.com/data/v4/matches/${match.match_id}/stats`, { headers });
+                
+                if (!statsResponse.ok) {
+                    console.warn(`[API] Failed to fetch stats for match ${match.match_id}`);
+                    continue;
+                }
+                
+                const statsData = await statsResponse.json();
+                
+                if (!statsData.rounds || statsData.rounds.length === 0) {
+                    continue;
+                }
+                
+                const round = statsData.rounds[0];
+                const teams = round.teams;
+                
+                if (!teams || teams.length < 2) {
+                    continue;
+                }
+                
+                // Find our team and enemy team
+                let ourTeam = null;
+                let enemyTeam = null;
+                
+                for (const team of teams) {
+                    if (team.team_id === teamId) {
+                        ourTeam = team;
+                    } else {
+                        enemyTeam = team;
+                    }
+                }
+                
+                if (!ourTeam || !enemyTeam) {
+                    // Fallback: check if any player from our tracked players is in the match
+                    for (const team of teams) {
+                        const teamPlayerIds = team.players.map(p => p.nickname.toLowerCase());
+                        const hasOurPlayers = TRACKED_PLAYERS.some(p => teamPlayerIds.includes(p.id.toLowerCase()));
+                        
+                        if (hasOurPlayers) {
+                            ourTeam = team;
+                            enemyTeam = teams.find(t => t !== team);
+                            break;
+                        }
+                    }
+                }
+                
+                if (!ourTeam || !enemyTeam) {
+                    continue; // Skip this match if we can't identify the teams
+                }
+                
+                // Extract scores
+                const ourScore = parseInt(ourTeam.team_stats['Final Score'] || 0);
+                const enemyScore = parseInt(enemyTeam.team_stats['Final Score'] || 0);
+                const isWin = ourScore > enemyScore;
+                
+                // Extract half scores
+                const ourFirstHalf = parseInt(ourTeam.team_stats['First Half Score'] || 0);
+                const ourSecondHalf = parseInt(ourTeam.team_stats['Second Half Score'] || 0);
+                const enemyFirstHalf = parseInt(enemyTeam.team_stats['First Half Score'] || 0);
+                const enemySecondHalf = parseInt(enemyTeam.team_stats['Second Half Score'] || 0);
+                
+                // Extract map name
+                const mapName = round.round_stats.Map || 'Unknown';
+                const cleanMapName = mapName.replace('de_', '').toUpperCase();
+                
+                matches.push({
+                    match_id: match.match_id,
+                    competition_name: match.competition_name,
+                    started_at: match.started_at,
+                    finished_at: match.finished_at,
+                    ourTeam: ourTeam.team_stats.Team || 'TacAM',
+                    enemyTeam: enemyTeam.team_stats.Team || 'Opponent',
+                    ourScore: ourScore,
+                    enemyScore: enemyScore,
+                    isWin: isWin,
+                    map: cleanMapName,
+                    firstHalf: {
+                        our: ourFirstHalf,
+                        enemy: enemyFirstHalf
+                    },
+                    secondHalf: {
+                        our: ourSecondHalf,
+                        enemy: enemySecondHalf
+                    }
+                });
+                
+            } catch (matchError) {
+                console.error(`[API] Error processing match ${match.match_id}:`, matchError.message);
+                continue;
+            }
+        }
+        
+        const response = {
+            success: true,
+            matches: matches,
+            count: matches.length
+        };
+        
+        // Cache the results
+        pastMatchesCache.set(teamId, {
+            data: response,
+            timestamp: Date.now()
+        });
+        
+        res.json(response);
+        
+    } catch (error) {
+        console.error('[API] Error fetching past matches:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch past matches',
+            message: error.message
+        });
+    }
+});
+
+// API endpoint: Get upcoming matches for championship
+app.get('/api/upcoming-matches/:championshipId', async (req, res) => {
+    const { championshipId } = req.params;
+    const limit = parseInt(req.query.limit) || 5;
+    
+    // Check cache first
+    const cacheKey = `upcoming_${championshipId}`;
+    const cached = pastMatchesCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        console.log(`[API] Returning cached upcoming matches for championship ${championshipId}`);
+        return res.json(cached.data);
+    }
+    
+    try {
+        console.log(`[API] Fetching fresh upcoming matches for championship ${championshipId}`);
+        
+        const headers = {
+            'Authorization': `Bearer ${FACEIT_API_KEY}`,
+            'Accept': 'application/json'
+        };
+        
+        // Fetch upcoming matches from championship
+        const matchesResponse = await fetch(
+            `https://open.faceit.com/data/v4/championships/${championshipId}/matches?type=upcoming&offset=0&limit=${limit * 2}`,
+            { headers }
+        );
+        
+        if (!matchesResponse.ok) {
+            throw new Error(`Failed to fetch championship matches: ${matchesResponse.statusText}`);
+        }
+        
+        const matchesData = await matchesResponse.json();
+        
+        if (!matchesData.items || matchesData.items.length === 0) {
+            const response = {
+                success: true,
+                matches: [],
+                message: 'No upcoming matches found'
+            };
+            
+            // Cache empty result for shorter time (1 hour)
+            pastMatchesCache.set(cacheKey, {
+                data: response,
+                timestamp: Date.now()
+            });
+            
+            return res.json(response);
+        }
+        
+        // Process matches - filter for team matches if needed
+        const matches = matchesData.items
+            .filter(match => {
+                // Only include matches with both teams assigned
+                return match.teams && match.teams.faction1 && match.teams.faction2;
+            })
+            .slice(0, limit)
+            .map(match => ({
+                match_id: match.match_id,
+                competition_name: match.competition_name,
+                scheduled_at: match.scheduled_at,
+                status: match.status,
+                teams: {
+                    faction1: {
+                        name: match.teams.faction1.name || match.teams.faction1.nickname || 'Team 1',
+                        faction_id: match.teams.faction1.faction_id
+                    },
+                    faction2: {
+                        name: match.teams.faction2.name || match.teams.faction2.nickname || 'Team 2',
+                        faction_id: match.teams.faction2.faction_id
+                    }
+                },
+                voting: match.voting || {}
+            }));
+        
+        const response = {
+            success: true,
+            matches: matches,
+            count: matches.length
+        };
+        
+        // Cache the results
+        pastMatchesCache.set(cacheKey, {
+            data: response,
+            timestamp: Date.now()
+        });
+        
+        res.json(response);
+        
+    } catch (error) {
+        console.error('[API] Error fetching upcoming matches:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch upcoming matches',
+            message: error.message
         });
     }
 });
