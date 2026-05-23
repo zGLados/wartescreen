@@ -718,10 +718,10 @@
                 }
             });
 
-            // Render maps based on manual veto data
+            // Render maps based on manual veto data with animations
             const allMaps = ['ANCIENT', 'ANUBIS', 'DUST2', 'INFERNO', 'MIRAGE', 'NUKE', 'OVERPASS'];
             
-            allMaps.forEach(mapName => {
+            allMaps.forEach((mapName, index) => {
                 let mapCard = document.getElementById(`map-${mapName}`);
                 const mapState = mapStates[mapName];
 
@@ -729,29 +729,37 @@
                     mapCard = document.createElement('div');
                     mapCard.id = `map-${mapName}`;
                     mapCard.className = 'map-card';
+                    
+                    // Add animation delay for staggered appearance
+                    mapCard.style.animationDelay = `${index * 0.2}s`;
+                    
+                    // Get map image URL (same as normal veto rendering)
+                    const mapImg = getMapImage(mapName) || `/maps/CS2_de_${mapName.toLowerCase()}.png`;
+                    
+                    // Use <img> tag like normal veto rendering for proper loading and animations
                     mapCard.innerHTML = `
-                        <div class="map-image" style="background-image: url('/maps/CS2_de_${mapName.toLowerCase()}.png')"></div>
+                        <img src="${mapImg}" alt="${mapName}" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x200?text=${mapName}';">
+                        <div class="status-label"></div>
                         <div class="map-name">${mapName}</div>
-                        <div class="map-status"></div>
                     `;
                     mapGrid.appendChild(mapCard);
                 }
 
-                const statusElement = mapCard.querySelector('.map-status');
+                const statusElement = mapCard.querySelector('.status-label');
 
                 if (mapState) {
                     if (mapState.banned) {
                         mapCard.classList.add('banned');
                         mapCard.classList.remove('picked', 'decider');
                         const teamName = mapState.team === 'team1' ? team1Data.name : team2Data.name;
-                        statusElement.textContent = `${teamName} BAN`;
+                        statusElement.textContent = `BAN`;
                         statusElement.classList.add('status-banned');
                         statusElement.classList.remove('status-picked', 'status-decider');
                     } else if (mapState.picked) {
                         mapCard.classList.add('picked');
                         mapCard.classList.remove('banned', 'decider');
                         const teamName = mapState.team === 'team1' ? team1Data.name : team2Data.name;
-                        statusElement.textContent = `${teamName} PICK`;
+                        statusElement.textContent = `PICK`;
                         statusElement.classList.add('status-picked');
                         statusElement.classList.remove('status-banned', 'status-decider');
                     } else if (mapState.decider) {

@@ -1246,13 +1246,18 @@
                 const response = await fetch(`/api/manual-veto/${matchId}`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Basic ' + btoa('admin:admin')
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         vetoData: manualVetoItems
                     })
                 });
+
+                // Check if response is OK before parsing JSON
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
 
                 const data = await response.json();
 
@@ -1282,10 +1287,7 @@
 
             try {
                 const response = await fetch(`/api/manual-veto/${matchId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': 'Basic ' + btoa('admin:admin')
-                    }
+                    method: 'DELETE'
                 });
 
                 const data = await response.json();
