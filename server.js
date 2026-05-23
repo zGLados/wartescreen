@@ -401,6 +401,28 @@ setTimeout(() => {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ========== URL REDIRECTS FOR REORGANIZED FILES ==========
+// Redirect old URLs to new organized structure
+
+// Scene redirects
+app.get('/viewer.html', (req, res) => res.redirect(301, '/scenes/viewer.html'));
+app.get('/past-matches.html', (req, res) => res.redirect(301, '/scenes/past-matches.html'));
+app.get('/upcoming-matches.html', (req, res) => res.redirect(301, '/scenes/upcoming-matches.html'));
+
+// Player redirects
+app.get('/player-to-watch-aindrew.html', (req, res) => res.redirect(301, '/players/player-to-watch-aindrew.html'));
+app.get('/player-to-watch-bravo.html', (req, res) => res.redirect(301, '/players/player-to-watch-bravo.html'));
+app.get('/player-to-watch-cln.html', (req, res) => res.redirect(301, '/players/player-to-watch-cln.html'));
+app.get('/player-to-watch-fucsii.html', (req, res) => res.redirect(301, '/players/player-to-watch-fucsii.html'));
+app.get('/player-to-watch-henzzik.html', (req, res) => res.redirect(301, '/players/player-to-watch-henzzik.html'));
+
+// Overlay redirects
+app.get('/brb.html', (req, res) => res.redirect(301, '/overlays/brb.html'));
+app.get('/pause.html', (req, res) => res.redirect(301, '/overlays/pause.html'));
+app.get('/clean.html', (req, res) => res.redirect(301, '/overlays/clean.html'));
+
+// ========== END URL REDIRECTS ==========
+
 // Serve videos from processed directory if available, otherwise from original
 app.use('/videos', (req, res, next) => {
     const processedDir = path.join(__dirname, 'videos', 'processed');

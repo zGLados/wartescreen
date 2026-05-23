@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Past Matches - TacAM</title>
+    <link rel="stylesheet" href="/css/viewer.css">
+    <link rel="stylesheet" href="/css/past-matches.css">
+</head>
+<body>
+    <div id="bg-video-container">
+        <video id="bg-video-local" muted playsinline preload="metadata" poster="" style="display: none;"></video>
+    </div>
+
+    <div class="past-matches-container">
+        <div class="header-section">
+            <h1 class="title">RECENT MATCHES</h1>
+            <div class="team-info-header">
+                <img src="/partners/TacAM_logo.png" alt="TacAM" class="team-logo-main">
+                <span class="team-name">TacAM</span>
+            </div>
+        </div>
+
+        <div id="matches-grid" class="matches-grid">
+            <!-- Matches werden per JavaScript eingefügt -->
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>Loading matches...</p>
+            </div>
+        </div>
+
+        <div id="error-message" class="error-message" style="display: none;">
+            <p>Failed to load matches</p>
+        </div>
+    </div>
+
+    <!-- Partner-Leiste -->
+    <div class="partner-bar" id="partnerBar">
+        <img src="/partners/TacAM_logo.png" class="partner-logo partner-fallback" alt="TacAM" id="tacamFallback">
+    </div>
+
+    <script src="/js/past-matches.js"></script>
+</body>
+</html>
