@@ -1141,7 +1141,7 @@ app.get('/api/tech-difficulties/:matchId', (req, res) => {
 // API endpoint: Set manual veto data (protected)
 app.post('/api/manual-veto/:matchId', requireAuth, (req, res) => {
     const { matchId } = req.params;
-    const { vetoData } = req.body;
+    const { vetoData, team1Name, team2Name, bestOf } = req.body;
     
     if (!vetoData || !Array.isArray(vetoData)) {
         return res.status(400).json({ 
@@ -1162,15 +1162,21 @@ app.post('/api/manual-veto/:matchId', requireAuth, (req, res) => {
     
     manualVetoData.set(matchId, {
         vetoData: vetoData,
+        team1Name: team1Name || '',
+        team2Name: team2Name || '',
+        bestOf: bestOf || 1,
         timestamp: Date.now()
     });
     
-    console.log(`[Manual Veto] Set for match ${matchId}:`, vetoData);
+    console.log(`[Manual Veto] Set for match ${matchId}:`, { team1Name, team2Name, bestOf, vetoCount: vetoData.length });
     
     res.json({ 
         success: true, 
         matchId, 
-        vetoData: vetoData 
+        vetoData: vetoData,
+        team1Name,
+        team2Name,
+        bestOf
     });
 });
 
@@ -1188,6 +1194,9 @@ app.get('/api/manual-veto/:matchId', (req, res) => {
     res.json({
         hasManualVeto: true,
         vetoData: data.vetoData,
+        team1Name: data.team1Name,
+        team2Name: data.team2Name,
+        bestOf: data.bestOf,
         timestamp: data.timestamp
     });
 });

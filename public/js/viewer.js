@@ -568,6 +568,27 @@
             const pickedMaps = [];
             let deciderMap = null;
             
+            // Determine expected number of regular picks (excluding decider) based on best_of
+            let expectedPicks = 0;
+            if (bestOf === 1) expectedPicks = 1;
+            else if (bestOf === 3) expectedPicks = 2;
+            else if (bestOf === 5) expectedPicks = 4;
+            
+            // Sort picked maps by their order in picks array
+            const sortedPicks = [];
+            picks.forEach(pickId => {
+                const map = entities.find(m => (m.guid || m.class_name) === pickId);
+                if (map) sortedPicks.push(map);
+            });
+            
+            // For BO3/BO5: If we have more picks than expected, the last pick is the decider
+            if (sortedPicks.length > expectedPicks && bestOf > 1) {
+                deciderMap = sortedPicks.pop(); // Remove and use last pick as decider
+            }
+            
+            // sortedPicks now contains only the regular picks (without decider)
+            pickedMaps.push(...sortedPicks);
+            
             entities.forEach((map) => {
                 const mapId = map.guid || map.class_name;
                 const isPicked = picks.includes(mapId);
@@ -575,26 +596,21 @@
                 
                 if (isBanned) {
                     bannedMaps.push(map);
-                } else if (isPicked) {
-                    pickedMaps.push(map);
-                } else {
-                    // Check if this could be the decider
-                    if (picks.length + bans.length === totalMaps - 1) {
-                        // Last remaining map is always the decider (BO1, BO3, BO5)
-                        deciderMap = map;
-                    } else if (bestOf === 1 && picks.length > 0) {
-                        // For BO1: All non-picked maps (except decider) are implicitly banned
-                        bannedMaps.push(map);
-                    }
+                } else if (!isPicked) {
+                    // Map is not picked or banned
+                    // Treat as implicitly banned (FACEIT doesn't provide ban order)
+                    bannedMaps.push(map);
                 }
             });
             
-            // Sort picked maps in order they appear in picks array (veto order)
-            pickedMaps.sort((a, b) => {
-                const aId = a.guid || a.class_name;
-                const bId = b.guid || b.class_name;
-                return picks.indexOf(aId) - picks.indexOf(bId);
-            });
+            // Note: pickedMaps are already sorted in veto order from sortedPicks
+            
+            // Debug output
+            console.log('[Veto Debug] Best Of:', bestOf);
+            console.log('[Veto Debug] Total Picks:', picks.length, 'Expected:', expectedPicks);
+            console.log('[Veto Debug] Picked Maps:', pickedMaps.map(m => m.name));
+            console.log('[Veto Debug] Banned Maps:', bannedMaps.map(m => m.name));
+            console.log('[Veto Debug] Decider:', deciderMap ? deciderMap.name : 'None');
             
             // Reconstruct map order based on veto pattern
             const finalMaps = [];
@@ -610,17 +626,18 @@
                     finalMaps.push(deciderMap);
                 }
             });
+            
+            console.log('[Veto Debug] Final Maps Order:', finalMaps.map(m => m.name));
 
             let currentAnimationIndex = 0; // Counter for new maps
 
             finalMaps.forEach((map, index) => {
                 const mapId = map.guid || map.class_name;
-                const isPicked = picks.includes(mapId);
-                const isBanned = (bestOf === 1 && !isPicked) || bans.includes(mapId);
                 
-                // Check if this is the decider map (BO3/BO5 only)
-                const isDecider = bestOf > 1 && !isPicked && !isBanned && 
-                                  (picks.length + bans.length === entities.length - 1);
+                // Determine map status based on our categorization
+                const isDecider = map === deciderMap;
+                const isPicked = !isDecider && pickedMaps.includes(map);
+                const isBanned = !isDecider && !isPicked; // Everything else is banned
                 
                 const mapKey = mapId;
                 const existingCard = existingCards.get(map.name);
@@ -640,7 +657,13 @@
                     // Update status label
                     const statusLabel = existingCard.querySelector('.status-label');
                     if (statusLabel) {
-                        statusLabel.textContent = getStatusLabel(map, data, index);
+                        if (isDecider) {
+                            statusLabel.textContent = 'DECIDER';
+                        } else if (isPicked) {
+                            statusLabel.textContent = 'PICK';
+                        } else {
+                            statusLabel.textContent = 'BANNED';
+                        }
                     }
                     
                     existingCards.delete(map.name); // Markiere als verarbeitet
@@ -662,10 +685,20 @@
                     
                     // Priority: 1. FACEIT image_lg, 2. Local images, 3. Placeholder
                     const mapImg = map.image_lg || getMapImage(map.name) || `https://via.placeholder.com/150x200?text=${map.name}`;
+                    
+                    // Determine status label
+                    let statusLabel = '';
+                    if (isDecider) {
+                        statusLabel = 'DECIDER';
+                    } else if (isPicked) {
+                        statusLabel = 'PICK';
+                    } else {
+                        statusLabel = 'BANNED';
+                    }
 
                     card.innerHTML = `
                         <img src="${mapImg}" alt="${map.name}" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x200?text=${map.name}';">
-                        <div class="status-label">${getStatusLabel(map, data, index)}</div>
+                        <div class="status-label">${statusLabel}</div>
                         <div class="map-name">${map.name}</div>
                     `;
                     grid.appendChild(card);
@@ -675,7 +708,214 @@
             // Remove maps that are no longer in the list (shouldn't happen, but just to be safe)
             existingCards.forEach(card => card.remove());
 
-            updateStatusText(data);
+            // Check if veto is complete (use totalMaps from line 503)
+            const processedMaps = picks.length + bans.length;
+            const isVetoFinished = processedMaps >= totalMaps || finalMaps.length >= totalMaps;
+
+            if (!isVetoFinished) {
+                // Veto is still in progress
+                actionDisplay.textContent = "Veto in Progress";
+            } else {
+                // Veto is complete - use FACEIT status
+                updateStatusText(data);
+            }
+        }
+
+        // Render manual veto with FACEIT timer sync
+        function renderManualVeto(data, manualVetoData) {
+            // Bei FINISHED Status immer Outro anzeigen
+            if (data.status === 'FINISHED') {
+                showOutroView(data);
+                return;
+            }
+            
+            if (!SHOW_VETO) return;
+
+            // Show map grid on first veto render only (prevents animation reset)
+            if (!mapGridInitialized) {
+                mapGrid.style.display = 'flex';
+                mapGridInitialized = true;
+            }
+
+            // Use team names from manual veto data or fall back to FACEIT data
+            const teams = [data.teams.faction1, data.teams.faction2];
+            const tacamIndex = teams.findIndex(t => t.name.toLowerCase().includes("tacam"));
+            
+            // Sort teams for display (TacAM always left/home)
+            if (tacamIndex === 1) teams.reverse();
+            const [team1Data, team2Data] = teams;
+
+            // Use manual veto team names if provided
+            const team1Name = manualVetoData.team1Name || team1Data.name;
+            const team2Name = manualVetoData.team2Name || team2Data.name;
+
+            team1Display.textContent = team1Name;
+            team2Display.textContent = team2Name;
+            team1Logo.src = team1Data.avatar || 'https://via.placeholder.com/100?text=' + encodeURIComponent(team1Name);
+            team2Logo.src = team2Data.avatar || '/logo_T_default.png';
+
+            leagueDisplay.textContent = data.competition_name || "FACEIT Match";
+            const bestOf = manualVetoData.bestOf || data.best_of || 1;
+            formatDisplay.textContent = `Best of ${bestOf}`;
+
+            const vetoItems = manualVetoData.vetoData || [];
+            const totalActions = vetoItems.length;
+            
+            // All CS2 maps (without Vertigo)
+            const allMaps = ['Ancient', 'Anubis', 'Dust2', 'Inferno', 'Mirage', 'Nuke', 'Overpass'];
+            
+            // Determine how many maps should be visible based on veto actions
+            let expectedMaps = totalActions;
+            
+            // Check if veto is complete (all 7 maps accounted for)
+            const vetoIsComplete = totalActions >= allMaps.length;
+            if (vetoIsComplete) {
+                expectedMaps = allMaps.length; // Show all maps
+            } else if (totalActions === allMaps.length - 1) {
+                // 6 actions done, show the 7th as automatic decider
+                expectedMaps = allMaps.length;
+            }
+            
+            // Hide timer if veto is complete and setting is enabled
+            if (HIDE_TIMER_AFTER_VETO && vetoIsComplete) {
+                if (!isVetoComplete) {
+                    isVetoComplete = true;
+                    timerDisplay.style.display = 'none';
+                    actionDisplay.style.display = 'none';
+                }
+            } else {
+                if (isVetoComplete) {
+                    isVetoComplete = false;
+                    timerDisplay.style.display = 'block';
+                    actionDisplay.style.display = 'block';
+                }
+            }
+
+            // Create a map of existing visible cards
+            const existingCards = new Map();
+            Array.from(grid.children).forEach(card => {
+                const mapName = card.querySelector('.map-name')?.textContent;
+                const isVisible = parseFloat(window.getComputedStyle(card).opacity) > 0;
+                if (mapName && isVisible) {
+                    existingCards.set(mapName, card);
+                }
+            });
+
+            // Count visible maps for animation delay
+            const visibleMapCount = Array.from(grid.children).filter(card => {
+                return parseFloat(window.getComputedStyle(card).opacity) > 0;
+            }).length;
+
+            let currentAnimationIndex = 0;
+
+            // Render maps with slow reveal animation
+            for (let i = 0; i < expectedMaps; i++) {
+                const vetoItem = vetoItems[i];
+                if (!vetoItem) {
+                    // If we're showing the decider but it's not in the veto list yet
+                    if (vetoIsComplete && i === vetoItems.length) {
+                        // Find the remaining map
+                        const usedMaps = vetoItems.map(v => v.map.toUpperCase());
+                        const remainingMap = allMaps.find(m => !usedMaps.includes(m.toUpperCase()));
+                        
+                        if (remainingMap && !existingCards.has(remainingMap)) {
+                            createManualVetoCard(remainingMap, 'decider', '', null, visibleMapCount, currentAnimationIndex);
+                            currentAnimationIndex++;
+                        }
+                    }
+                    continue;
+                }
+
+                const mapName = vetoItem.map;
+                const actionType = vetoItem.type; // 'ban', 'pick', 'decider'
+                const teamKey = vetoItem.team; // 'team1' or 'team2'
+                const teamName = teamKey === 'team1' ? team1Name : team2Name;
+                
+                const existingCard = existingCards.get(mapName);
+                
+                if (existingCard) {
+                    // Map already visible - update classes and label
+                    existingCard.className = 'map-card';
+                    if (actionType === 'pick') existingCard.classList.add('picked');
+                    if (actionType === 'ban') existingCard.classList.add('banned');
+                    if (actionType === 'decider') existingCard.classList.add('decider');
+                    
+                    // Update status label with team name
+                    const statusLabel = existingCard.querySelector('.status-label');
+                    if (statusLabel) {
+                        statusLabel.textContent = getManualVetoStatusLabel(actionType, teamName, bestOf);
+                    }
+                    
+                    existingCards.delete(mapName);
+                } else {
+                    // Check if already in DOM but not visible
+                    const alreadyInGrid = Array.from(grid.children).some(card => 
+                        card.querySelector('.map-name')?.textContent === mapName
+                    );
+                    
+                    if (!alreadyInGrid) {
+                        // Create new card with animation
+                        createManualVetoCard(mapName, actionType, teamName, bestOf, visibleMapCount, currentAnimationIndex);
+                        currentAnimationIndex++;
+                    }
+                }
+            }
+
+            // Remove old cards no longer needed
+            existingCards.forEach(card => card.remove());
+
+            // Update status text based on veto completion
+            if (!vetoIsComplete) {
+                // Veto is still in progress
+                actionDisplay.textContent = "Veto in Progress";
+            } else {
+                // Veto is complete - use FACEIT status
+                updateStatusText(data);
+            }
+        }
+
+        function createManualVetoCard(mapName, actionType, teamName, bestOf, visibleMapCount, animationIndex) {
+            const card = document.createElement('div');
+            card.className = 'map-card';
+            if (actionType === 'pick') card.classList.add('picked');
+            if (actionType === 'ban') card.classList.add('banned');
+            if (actionType === 'decider') card.classList.add('decider');
+            
+            // Animate with delay
+            card.style.animationDelay = `${(visibleMapCount + animationIndex) * 2}s`;
+            
+            const mapImg = getMapImage(mapName) || `https://via.placeholder.com/150x200?text=${mapName}`;
+            const statusText = getManualVetoStatusLabel(actionType, teamName, bestOf);
+
+            card.innerHTML = `
+                <img src="${mapImg}" alt="${mapName}" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x200?text=${mapName}';">
+                <div class="status-label">${statusText}</div>
+                <div class="map-name">${mapName}</div>
+            `;
+            grid.appendChild(card);
+        }
+
+        function getManualVetoStatusLabel(actionType, teamName, bestOf) {
+            if (actionType === 'decider') {
+                return 'DECIDER';
+            }
+            
+            if (bestOf === 1) {
+                if (actionType === 'pick') {
+                    return 'DEFAULT';
+                } else {
+                    return `BANNED by ${teamName}`;
+                }
+            }
+            
+            // BO3/BO5: Show action with team name
+            if (actionType === 'pick') {
+                return `PICK by ${teamName}`;
+            } else if (actionType === 'ban') {
+                return `BAN by ${teamName}`;
+            }
+            
+            return '';
         }
 
         function renderSimpleCountdown(data) {
@@ -697,7 +937,7 @@
             formatDisplay.textContent = `Best of ${data.best_of || '?'}`;
 
             mapGrid.style.display = 'none';
-            actionDisplay.textContent = "Stream starting soon...";
+            actionDisplay.textContent = "Stream Starts In";
 
             // If no timer override is active, use FACEIT time
             // If manual timer is active, don't touch FACEIT timers
@@ -1150,7 +1390,7 @@
                             }
                         }
                     } else {
-                        actionDisplay.textContent = "Stream starts in";
+                        actionDisplay.textContent = "Stream Starts In";
                     }
                     break;
             }

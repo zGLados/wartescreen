@@ -318,7 +318,153 @@
             </div>
         </div>
 
-        <!-- Timer & Tech Difficulties (Side by Side) -->
+        <!-- Manual Veto (Full Width) - MOVED UP -->
+        <div class="grid-container">
+            <div class="card grid-full">
+                <h2 class="section-title">🎯 Manual Veto Picks/Bans</h2>
+                
+                <div class="form-group">
+                    <p style="font-size: 0.95rem; color: #aaa; margin-bottom: 20px;">
+                        <strong>Override FACEIT API veto data with manual picks/bans.</strong><br>
+                        • <strong>Timer remains synced with FACEIT</strong> - only the map veto display is overridden<br>
+                        • Maps reveal slowly with animation, just like automatic mode<br>
+                        • Team names are displayed next to each pick/ban<br>
+                        • Choose between Auto Mode (follow veto pattern) or Manual Mode (full control)<br>
+                        • Useful when FACEIT API veto data is incorrect or delayed
+                    </p>
+                    
+                    <label class="checkbox-label" style="margin-bottom: 20px;">
+                        <input type="checkbox" id="manualVetoEnabled" onchange="toggleManualVeto()" style="margin-right: 10px;">
+                        Enable Manual Veto Mode
+                    </label>
+                </div>
+
+                <div id="manualVetoControls" style="display: none;">
+                    <!-- Configuration Section -->
+                    <div class="form-group">
+                        <label>Best of (BO)</label>
+                        <select id="bestOfSelect" style="width: 100%;" onchange="updateVetoPattern()">
+                            <option value="1">Best of 1 (BO1)</option>
+                            <option value="3" selected>Best of 3 (BO3)</option>
+                            <option value="5">Best of 5 (BO5)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Team Names</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="team1Name" placeholder="Team 1 Name" style="flex: 1;">
+                            <input type="text" id="team2Name" placeholder="Team 2 Name" style="flex: 1;">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Which team starts the veto?</label>
+                        <div style="margin-top: 10px;">
+                            <label class="checkbox-label" style="margin-bottom: 10px;">
+                                <input type="radio" name="vetoStartTeam" id="vetoStartTeam1" value="team1" style="margin-right: 10px;" checked>
+                                Team 1 starts
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="radio" name="vetoStartTeam" id="vetoStartTeam2" value="team2" style="margin-right: 10px;">
+                                Team 2 starts
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Mode Selection -->
+                    <div class="form-group">
+                        <label>Veto Mode</label>
+                        <div style="margin-top: 10px;">
+                            <label class="checkbox-label" style="margin-bottom: 10px;">
+                                <input type="radio" name="vetoMode" id="vetoModeAuto" value="auto" style="margin-right: 10px;" checked onchange="updateVetoMode()">
+                                <strong>Auto Mode:</strong> Click "Next Action" to automatically switch between teams and actions
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="radio" name="vetoMode" id="vetoModeManual" value="manual" style="margin-right: 10px;" onchange="updateVetoMode()">
+                                <strong>Manual Mode:</strong> Manually select map, action, and team for each pick/ban
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Auto Mode Controls -->
+                    <div id="autoModeControls" style="display: block;">
+                        <div class="form-group">
+                            <div style="background: rgba(52, 152, 219, 0.1); padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                                <p style="margin: 0; font-size: 0.9rem; color: #3498db;">
+                                    <strong>Current Action:</strong> <span id="currentAutoAction">Team 1 BAN</span>
+                                </p>
+                            </div>
+                            
+                            <label>Select Map for Current Action</label>
+                            <select id="autoVetoMap" style="width: 100%; margin-bottom: 15px;">
+                                <option value="">-- Select Map --</option>
+                                <option value="Ancient">Ancient</option>
+                                <option value="Anubis">Anubis</option>
+                                <option value="Dust2">Dust2</option>
+                                <option value="Inferno">Inferno</option>
+                                <option value="Mirage">Mirage</option>
+                                <option value="Nuke">Nuke</option>
+                                <option value="Overpass">Overpass</option>
+                            </select>
+                            
+                            <button class="btn btn-primary" onclick="nextAutoAction()" style="width: 100%; margin-bottom: 10px;">
+                                📝 Next Action (Add & Continue)
+                            </button>
+                            <button class="btn btn-success" onclick="finishAutoVeto()" style="width: 100%;">
+                                ✅ Finish & Save Veto
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Manual Mode Controls -->
+                    <div id="manualModeControls" style="display: none;">
+                        <div class="form-group">
+                            <label>Add Veto Item Manually</label>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <select id="vetoMap" style="flex: 1; min-width: 150px;">
+                                    <option value="">-- Select Map --</option>
+                                    <option value="Ancient">Ancient</option>
+                                    <option value="Anubis">Anubis</option>
+                                    <option value="Dust2">Dust2</option>
+                                    <option value="Inferno">Inferno</option>
+                                    <option value="Mirage">Mirage</option>
+                                    <option value="Nuke">Nuke</option>
+                                    <option value="Overpass">Overpass</option>
+                                </select>
+                                <select id="vetoType" style="flex: 1; min-width: 120px;">
+                                    <option value="ban">Ban</option>
+                                    <option value="pick">Pick</option>
+                                    <option value="decider">Decider</option>
+                                </select>
+                                <select id="vetoTeam" style="flex: 1; min-width: 120px;">
+                                    <option value="team1">Team 1</option>
+                                    <option value="team2">Team 2</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="addVetoItemManual()" style="flex-shrink: 0;">Add</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Veto Sequence Display -->
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label>Current Veto Sequence</label>
+                        <div id="vetoList" style="background: #0f1722; padding: 15px; border-radius: 4px; min-height: 100px;">
+                            <p style="color: #888; text-align: center;">No veto items added yet</p>
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-success" onclick="saveManualVeto()">💾 Save & Apply Veto</button>
+                        <button class="btn btn-danger" onclick="clearManualVeto()">🗑️ Clear All</button>
+                    </div>
+                </div>
+
+                <div id="manualVetoStatusMessage" class="status-message"></div>
+            </div>
+        </div>
+
+        <!-- Timer & Tech Difficulties & Veto Display (Three Columns) -->
         <div class="grid-container">
             <div class="card">
                 <h2 class="section-title">Timer Settings</h2>
@@ -372,10 +518,7 @@
 
                 <div id="techDiffStatusMessage" class="status-message"></div>
             </div>
-        </div>
 
-        <!-- Veto Settings (Side by Side) -->
-        <div class="grid-container">
             <div class="card">
                 <h2 class="section-title">Pick/Ban Anzeige (Veto)</h2>
                 
@@ -397,7 +540,10 @@
 
                 <div id="vetoStatusMessage" class="status-message"></div>
             </div>
+        </div>
 
+        <!-- Veto Advanced Settings (Two Columns) -->
+        <div class="grid-container">
             <div class="card">
                 <h2 class="section-title">Veto Start Order</h2>
                 
@@ -455,77 +601,6 @@
             </div>
         </div>
 
-        <!-- Manual Veto (Full Width) -->
-        <div class="grid-container">
-            <div class="card grid-full">
-                <h2 class="section-title">🎯 Manual Veto Picks/Bans</h2>
-                
-                <div class="form-group">
-                    <p style="font-size: 0.95rem; color: #aaa; margin-bottom: 20px;">
-                        <strong>Override FACEIT API veto data with manual picks/bans.</strong><br>
-                        • Does NOT affect the timer - only the map veto display<br>
-                        • Activate to manually control which team picked/banned which map<br>
-                        • Useful when FACEIT API data is incorrect or delayed
-                    </p>
-                    
-                    <label class="checkbox-label" style="margin-bottom: 20px;">
-                        <input type="checkbox" id="manualVetoEnabled" onchange="toggleManualVeto()" style="margin-right: 10px;">
-                        Enable Manual Veto Mode
-                    </label>
-                </div>
-
-                <div id="manualVetoControls" style="display: none;">
-                    <div class="form-group">
-                        <label>Team Names</label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="text" id="team1Name" placeholder="Team 1 Name" style="flex: 1;">
-                            <input type="text" id="team2Name" placeholder="Team 2 Name" style="flex: 1;">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Add Veto Item</label>
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <select id="vetoMap" style="flex: 1; min-width: 150px;">
-                                <option value="ANCIENT">Ancient</option>
-                                <option value="ANUBIS">Anubis</option>
-                                <option value="DUST2">Dust2</option>
-                                <option value="INFERNO">Inferno</option>
-                                <option value="MIRAGE">Mirage</option>
-                                <option value="NUKE">Nuke</option>
-                                <option value="OVERPASS">Overpass</option>
-                                <option value="VERTIGO">Vertigo</option>
-                            </select>
-                            <select id="vetoType" style="flex: 1; min-width: 120px;">
-                                <option value="ban">Ban</option>
-                                <option value="pick">Pick</option>
-                                <option value="decider">Decider</option>
-                            </select>
-                            <select id="vetoTeam" style="flex: 1; min-width: 120px;">
-                                <option value="team1">Team 1</option>
-                                <option value="team2">Team 2</option>
-                            </select>
-                            <button class="btn btn-primary" onclick="addVetoItem()" style="flex-shrink: 0;">Add</button>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Current Veto Sequence</label>
-                        <div id="vetoList" style="background: #0f1722; padding: 15px; border-radius: 4px; min-height: 100px;">
-                            <p style="color: #888; text-align: center;">No veto items added yet</p>
-                        </div>
-                    </div>
-
-                    <div class="btn-group">
-                        <button class="btn btn-success" onclick="saveManualVeto()">Save Manual Veto</button>
-                        <button class="btn btn-danger" onclick="clearManualVeto()">Clear All</button>
-                    </div>
-                </div>
-
-                <div id="manualVetoStatusMessage" class="status-message"></div>
-            </div>
-        </div>
-
         <!-- Instructions (Full Width) -->
         <div class="grid-container">
             <div class="card grid-full">
@@ -535,15 +610,23 @@
                     <p><strong>2.</strong> Select timer duration or enter manually</p>
                     <p><strong>3.</strong> Click "Set/Update Timer"</p>
                     <p><strong>4.</strong> Open viewer page with the generated link</p>
-                    <p style="margin-top: 15px;"><strong>🎯 Manual Timer - ABSOLUTE PRIORITY:</strong></p>
+                    
+                    <p style="margin-top: 15px;"><strong>🎯 Manual Timer:</strong></p>
                     <p style="margin-left: 20px;">• <strong>Manual timer overrides EVERYTHING</strong></p>
-                    <p style="margin-left: 20px;">• Runs continuously - ignores veto actions, match status changes, lineup changes</p>
+                    <p style="margin-left: 20px;">• Runs continuously - ignores veto actions, match status changes</p>
                     <p style="margin-left: 20px;">• Counts down to 0:00 → shows "Soon™"</p>
-                    <p style="margin-left: 20px;">• Map veto is still displayed when available</p>
-                    <p style="margin-left: 20px;">• Update timer anytime - changes apply within 0.5 seconds</p>
-                    <p style="margin-top: 15px;"><strong>🔄 Return to Automatic Timers:</strong></p>
-                    <p style="margin-left: 20px;">Click "Clear Timer" - switches back to FACEIT timers within 0.5 seconds</p>
-                    <p style="margin-top: 15px;"><strong>Note:</strong> The timer is updated live on the viewer page.</p>
+                    <p style="margin-left: 20px;">• Click "Clear Timer" to return to FACEIT timers</p>
+                    
+                    <p style="margin-top: 15px;"><strong>🎮 Manual Veto Mode - NEW FEATURES:</strong></p>
+                    <p style="margin-left: 20px;">• <strong>Timer remains synced with FACEIT</strong> - not affected by manual veto</p>
+                    <p style="margin-left: 20px;">• Maps reveal slowly with animation (like automatic mode)</p>
+                    <p style="margin-left: 20px;">• Team names displayed next to each pick/ban</p>
+                    <p style="margin-left: 20px;">• Choose BO1, BO3, or BO5 format</p>
+                    <p style="margin-left: 20px;">• <strong>Auto Mode:</strong> Click "Next Action" to follow veto pattern automatically</p>
+                    <p style="margin-left: 20px;">• <strong>Manual Mode:</strong> Full control over each pick/ban</p>
+                    <p style="margin-left: 20px;">• Auto-saves after each action in Auto Mode</p>
+                    
+                    <p style="margin-top: 15px;"><strong>Note:</strong> All changes are updated live on the viewer page.</p>
                 </div>
             </div>
         </div>
@@ -648,6 +731,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify({ duration })
                 });
 
@@ -680,7 +764,8 @@
 
             try {
                 const response = await fetch(`/api/timer/${matchId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    credentials: 'include'
                 });
 
                 const data = await response.json();
@@ -759,6 +844,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify({ showVeto })
                 });
 
@@ -791,7 +877,8 @@
 
             try {
                 const response = await fetch(`/api/veto/${matchId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    credentials: 'include'
                 });
 
                 const data = await response.json();
@@ -960,6 +1047,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify({ side })
                 });
 
@@ -1000,7 +1088,8 @@
 
             try {
                 const response = await fetch(`/api/veto-start/${matchId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    credentials: 'include'
                 });
 
                 const data = await response.json();
@@ -1076,6 +1165,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify({ hideTimer })
                 });
 
@@ -1108,7 +1198,8 @@
 
             try {
                 const response = await fetch(`/api/hide-timer-after-veto/${matchId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    credentials: 'include'
                 });
 
                 const data = await response.json();
@@ -1137,6 +1228,9 @@
 
         // ========== MANUAL VETO FUNCTIONS ==========
         let manualVetoItems = [];
+        let currentVetoPattern = [];
+        let currentPatternIndex = 0;
+        let currentStartTeam = 'team1';
 
         function toggleManualVeto() {
             const enabled = document.getElementById('manualVetoEnabled').checked;
@@ -1144,7 +1238,184 @@
             controls.style.display = enabled ? 'block' : 'none';
             
             if (enabled) {
+                updateVetoPattern();
+                updateAutoMapDropdown();
+                updateManualMapDropdown();
                 loadCurrentManualVeto();
+            }
+        }
+
+        function updateVetoMode() {
+            const isAuto = document.getElementById('vetoModeAuto').checked;
+            document.getElementById('autoModeControls').style.display = isAuto ? 'block' : 'none';
+            document.getElementById('manualModeControls').style.display = isAuto ? 'none' : 'block';
+            
+            if (isAuto) {
+                updateVetoPattern();
+                updateCurrentAutoAction();
+            } else {
+                // Update manual map dropdown when switching to manual mode
+                updateManualMapDropdown();
+            }
+        }
+
+        function updateVetoPattern() {
+            const bestOf = parseInt(document.getElementById('bestOfSelect').value);
+            currentStartTeam = document.querySelector('input[name="vetoStartTeam"]:checked').value;
+            
+            // Define veto patterns (7 maps total: Ancient, Anubis, Dust2, Inferno, Mirage, Nuke, Overpass)
+            if (bestOf === 1) {
+                // BO1: 6 bans alternating, last map is default (pick)
+                currentVetoPattern = [
+                    { type: 'ban', team: 'team1' },
+                    { type: 'ban', team: 'team2' },
+                    { type: 'ban', team: 'team1' },
+                    { type: 'ban', team: 'team2' },
+                    { type: 'ban', team: 'team1' },
+                    { type: 'ban', team: 'team2' },
+                    { type: 'pick', team: 'team1' } // Last map as default/pick
+                ];
+            } else if (bestOf === 3) {
+                // BO3: Ban, Ban, Pick, Pick, Ban, Ban, Decider
+                currentVetoPattern = [
+                    { type: 'ban', team: 'team1' },
+                    { type: 'ban', team: 'team2' },
+                    { type: 'pick', team: 'team1' },
+                    { type: 'pick', team: 'team2' },
+                    { type: 'ban', team: 'team1' },
+                    { type: 'ban', team: 'team2' },
+                    { type: 'decider', team: 'team1' } // Decider map
+                ];
+            } else if (bestOf === 5) {
+                // BO5: Ban, Ban, Pick, Pick, Pick, Pick, Decider
+                currentVetoPattern = [
+                    { type: 'ban', team: 'team1' },
+                    { type: 'ban', team: 'team2' },
+                    { type: 'pick', team: 'team1' },
+                    { type: 'pick', team: 'team2' },
+                    { type: 'pick', team: 'team1' },
+                    { type: 'pick', team: 'team2' },
+                    { type: 'decider', team: 'team1' } // Decider map
+                ];
+            }
+            
+            // Swap teams if team2 starts
+            if (currentStartTeam === 'team2') {
+                currentVetoPattern = currentVetoPattern.map(action => ({
+                    ...action,
+                    team: action.team === 'team1' ? 'team2' : 'team1'
+                }));
+            }
+            
+            updateCurrentAutoAction();
+        }
+
+        function updateCurrentAutoAction() {
+            const currentAction = document.getElementById('currentAutoAction');
+            
+            if (currentPatternIndex >= currentVetoPattern.length) {
+                currentAction.textContent = 'Veto Complete! Click "Finish & Save"';
+                currentAction.style.color = '#2ecc71';
+                return;
+            }
+            
+            const action = currentVetoPattern[currentPatternIndex];
+            const team1Name = document.getElementById('team1Name').value || 'Team 1';
+            const team2Name = document.getElementById('team2Name').value || 'Team 2';
+            const teamName = action.team === 'team1' ? team1Name : team2Name;
+            
+            // Special display for decider
+            if (action.type === 'decider') {
+                currentAction.textContent = `Select DECIDER Map (Remaining Map)`;
+                currentAction.style.color = '#f39c12';
+            } else if (action.type === 'pick') {
+                currentAction.textContent = `${teamName} PICK`;
+                currentAction.style.color = '#2ecc71';
+            } else {
+                currentAction.textContent = `${teamName} BAN`;
+                currentAction.style.color = '#e74c3c';
+            }
+        }
+
+        function nextAutoAction() {
+            if (currentPatternIndex >= currentVetoPattern.length) {
+                showManualVetoStatus('Veto is complete! Click "Finish & Save"', 'error');
+                return;
+            }
+            
+            const mapSelect = document.getElementById('autoVetoMap');
+            const map = mapSelect.value;
+            
+            if (!map) {
+                showManualVetoStatus('Please select a map!', 'error');
+                return;
+            }
+            
+            // Check if map already used
+            const mapAlreadyUsed = manualVetoItems.some(item => item.map === map);
+            if (mapAlreadyUsed) {
+                showManualVetoStatus('This map has already been picked or banned!', 'error');
+                return;
+            }
+            
+            const action = currentVetoPattern[currentPatternIndex];
+            manualVetoItems.push({
+                map: map,
+                type: action.type,
+                team: action.team
+            });
+            
+            // Reset map selection
+            mapSelect.value = '';
+            
+            // Remove used map from dropdown
+            const option = mapSelect.querySelector(`option[value="${map}"]`);
+            if (option) option.remove();
+            
+            currentPatternIndex++;
+            updateCurrentAutoAction();
+            renderVetoList();
+            
+            // Auto-save on each action
+            autoSaveManualVeto();
+        }
+
+        function finishAutoVeto() {
+            if (manualVetoItems.length === 0) {
+                showManualVetoStatus('No veto actions added yet!', 'error');
+                return;
+            }
+            
+            saveManualVeto();
+        }
+
+        async function autoSaveManualVeto() {
+            // Auto-save without showing status messages
+            const input = matchIdInput.value.trim();
+            const matchId = extractMatchId(input);
+
+            if (!matchId || manualVetoItems.length === 0) return;
+
+            const team1Name = document.getElementById('team1Name').value || '';
+            const team2Name = document.getElementById('team2Name').value || '';
+            const bestOf = parseInt(document.getElementById('bestOfSelect').value);
+
+            try {
+                await fetch(`/api/manual-veto/${matchId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        vetoData: manualVetoItems,
+                        team1Name,
+                        team2Name,
+                        bestOf
+                    })
+                });
+            } catch (error) {
+                console.error('Auto-save error:', error);
             }
         }
 
@@ -1160,7 +1431,16 @@
 
                 if (data.hasManualVeto) {
                     manualVetoItems = data.vetoData;
+                    currentPatternIndex = data.vetoData.length;
+                    
+                    if (data.team1Name) document.getElementById('team1Name').value = data.team1Name;
+                    if (data.team2Name) document.getElementById('team2Name').value = data.team2Name;
+                    if (data.bestOf) document.getElementById('bestOfSelect').value = data.bestOf;
+                    
+                    updateVetoPattern();
                     renderVetoList();
+                    updateAutoMapDropdown();
+                    updateManualMapDropdown();
                     showManualVetoStatus('✓ Loaded existing manual veto data', 'success');
                 }
             } catch (error) {
@@ -1168,19 +1448,68 @@
             }
         }
 
-        function addVetoItem() {
+        function addVetoItemManual() {
             const map = document.getElementById('vetoMap').value;
             const type = document.getElementById('vetoType').value;
             const team = document.getElementById('vetoTeam').value;
 
+            if (!map) {
+                showManualVetoStatus('Please select a map!', 'error');
+                return;
+            }
+
             const item = { map, type, team };
             manualVetoItems.push(item);
             renderVetoList();
+            updateManualMapDropdown();
         }
 
         function removeVetoItem(index) {
             manualVetoItems.splice(index, 1);
+            
+            // Update pattern index if in auto mode
+            if (document.getElementById('vetoModeAuto').checked) {
+                currentPatternIndex = manualVetoItems.length;
+                updateCurrentAutoAction();
+                
+                // Re-add map to dropdown
+                updateAutoMapDropdown();
+            } else {
+                // Update manual mode dropdown
+                updateManualMapDropdown();
+            }
+            
             renderVetoList();
+        }
+
+        function updateAutoMapDropdown() {
+            const mapSelect = document.getElementById('autoVetoMap');
+            const allMaps = ['Ancient', 'Anubis', 'Dust2', 'Inferno', 'Mirage', 'Nuke', 'Overpass'];
+            const usedMaps = manualVetoItems.map(item => item.map);
+            const availableMaps = allMaps.filter(m => !usedMaps.includes(m));
+            
+            mapSelect.innerHTML = '<option value="">-- Select Map --</option>';
+            availableMaps.forEach(map => {
+                const option = document.createElement('option');
+                option.value = map;
+                option.textContent = map;
+                mapSelect.appendChild(option);
+            });
+        }
+
+        function updateManualMapDropdown() {
+            const mapSelect = document.getElementById('vetoMap');
+            const allMaps = ['Ancient', 'Anubis', 'Dust2', 'Inferno', 'Mirage', 'Nuke', 'Overpass'];
+            const usedMaps = manualVetoItems.map(item => item.map);
+            const availableMaps = allMaps.filter(m => !usedMaps.includes(m));
+            
+            mapSelect.innerHTML = '<option value="">-- Select Map --</option>';
+            availableMaps.forEach(map => {
+                const option = document.createElement('option');
+                option.value = map;
+                option.textContent = map;
+                mapSelect.appendChild(option);
+            });
         }
 
         function moveVetoItem(index, direction) {
@@ -1212,9 +1541,12 @@
                 decider: '⭐'
             };
 
+            const team1Name = document.getElementById('team1Name').value || 'Team 1';
+            const team2Name = document.getElementById('team2Name').value || 'Team 2';
+
             let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
             manualVetoItems.forEach((item, index) => {
-                const teamName = item.team === 'team1' ? (document.getElementById('team1Name').value || 'Team 1') : (document.getElementById('team2Name').value || 'Team 2');
+                const teamName = item.team === 'team1' ? team1Name : team2Name;
                 html += `
                     <div style="display: flex; align-items: center; gap: 10px; background: #1b2735; padding: 10px; border-radius: 4px; border-left: 4px solid ${typeColors[item.type]};">
                         <span style="font-weight: bold; min-width: 30px;">#${index + 1}</span>
@@ -1245,22 +1577,29 @@
                 return;
             }
 
+            const team1Name = document.getElementById('team1Name').value || '';
+            const team2Name = document.getElementById('team2Name').value || '';
+            const bestOf = parseInt(document.getElementById('bestOfSelect').value);
+
             try {
                 const response = await fetch(`/api/manual-veto/${matchId}`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Basic ' + btoa('admin:admin')
+                        'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify({
-                        vetoData: manualVetoItems
+                        vetoData: manualVetoItems,
+                        team1Name,
+                        team2Name,
+                        bestOf
                     })
                 });
 
                 const data = await response.json();
 
                 if (data.success) {
-                    showManualVetoStatus(`✓ Manual veto saved! ${manualVetoItems.length} items configured`, 'success');
+                    showManualVetoStatus(`✓ Manual veto saved! ${manualVetoItems.length} items configured. Timer synced with FACEIT.`, 'success');
                 } else {
                     showManualVetoStatus('Error: ' + (data.error || 'Unknown error'), 'error');
                 }
@@ -1286,16 +1625,17 @@
             try {
                 const response = await fetch(`/api/manual-veto/${matchId}`, {
                     method: 'DELETE',
-                    headers: {
-                        'Authorization': 'Basic ' + btoa('admin:admin')
-                    }
+                    credentials: 'include'
                 });
 
                 const data = await response.json();
 
                 if (data.success) {
                     manualVetoItems = [];
+                    currentPatternIndex = 0;
                     renderVetoList();
+                    updateAutoMapDropdown();
+                    updateCurrentAutoAction();
                     document.getElementById('manualVetoEnabled').checked = false;
                     toggleManualVeto();
                     showManualVetoStatus('✓ Manual veto cleared - back to automatic mode', 'success');
