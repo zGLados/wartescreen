@@ -563,10 +563,6 @@
         matchIdInput.addEventListener('input', () => {
             updateViewerLink();
             loadVetoSetting();
-            loadMatchTeamNames(); // Auto-load team names for manual veto
-            loadTechDifficulties();
-            loadVetoStart();
-            loadHideTimerAfterVeto();
         });
         timerDurationInput.addEventListener('input', updatePreviewTimer);
 
@@ -825,6 +821,14 @@
         // Tech Difficulties Functions
         const techDiffCheckbox = document.getElementById('techDiffCheckbox');
         const techDiffStatusMessage = document.getElementById('techDiffStatusMessage');
+
+        matchIdInput.addEventListener('input', () => {
+            updateViewerLink();
+            loadVetoSetting();
+            loadTechDifficulties();
+            loadVetoStart();
+            loadHideTimerAfterVeto();
+        });
 
         async function loadTechDifficulties() {
             const input = matchIdInput.value.trim();
@@ -1141,7 +1145,6 @@
             
             if (enabled) {
                 loadCurrentManualVeto();
-                loadMatchTeamNames(); // Auto-load team names when enabling manual veto
             }
         }
 
@@ -1246,18 +1249,13 @@
                 const response = await fetch(`/api/manual-veto/${matchId}`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Basic ' + btoa('admin:admin')
                     },
                     body: JSON.stringify({
                         vetoData: manualVetoItems
                     })
                 });
-
-                // Check if response is OK before parsing JSON
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
-                }
 
                 const data = await response.json();
 
@@ -1287,7 +1285,10 @@
 
             try {
                 const response = await fetch(`/api/manual-veto/${matchId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa('admin:admin')
+                    }
                 });
 
                 const data = await response.json();
@@ -1316,54 +1317,6 @@
             setTimeout(() => {
                 statusMessage.style.display = 'none';
             }, 5000);
-        }
-
-        // Auto-load team names from FACEIT API when match ID is entered
-        async function loadMatchTeamNames() {
-            const input = matchIdInput.value.trim();
-            const matchId = extractMatchId(input);
-
-            if (!matchId) {
-                return; // No valid match ID, skip
-            }
-
-            try {
-                // Fetch match data from FACEIT API
-                const apiKey = '84e84dc8-0f8a-4497-85ff-5d282933a213'; // Use the server's API key
-                const response = await fetch(`https://open.faceit.com/data/v4/matches/${matchId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`
-                    }
-                });
-
-                if (!response.ok) {
-                    console.log('Could not fetch match data for team names');
-                    return;
-                }
-
-                const data = await response.json();
-
-                if (data.teams && data.teams.faction1 && data.teams.faction2) {
-                    const team1Name = data.teams.faction1.name || '';
-                    const team2Name = data.teams.faction2.name || '';
-
-                    // Auto-fill team names in manual veto section
-                    const team1Input = document.getElementById('team1Name');
-                    const team2Input = document.getElementById('team2Name');
-
-                    if (team1Input && team1Name) {
-                        team1Input.value = team1Name;
-                    }
-                    if (team2Input && team2Name) {
-                        team2Input.value = team2Name;
-                    }
-
-                    console.log(`[Auto-load] Team names loaded: ${team1Name} vs ${team2Name}`);
-                }
-            } catch (error) {
-                console.error('Error loading team names:', error);
-                // Silently fail - not critical
-            }
         }
 
         // ========== END MANUAL VETO FUNCTIONS ==========
