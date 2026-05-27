@@ -498,6 +498,15 @@
             const entities = voting.entities;
             const picks = voting.pick || [];
             const bans = voting.drop || [];
+            
+            // DEBUG: Log raw voting data to verify order
+            console.log('[Veto Order Debug] Raw picks array:', picks);
+            console.log('[Veto Order Debug] Raw bans/drop array:', bans);
+            console.log('[Veto Order Debug] Full voting object:', voting);
+            console.log('[Veto Order Debug] Checking for additional order fields...');
+            if (voting.pick_order) console.log('[Veto Order Debug] pick_order found:', voting.pick_order);
+            if (voting.drop_order) console.log('[Veto Order Debug] drop_order found:', voting.drop_order);
+            if (voting.vote_history) console.log('[Veto Order Debug] vote_history found:', voting.vote_history);
 
             const totalActions = picks.length + bans.length;
             const totalMaps = entities.length;
@@ -576,10 +585,43 @@
             
             // Sort picked maps by their order in picks array
             const sortedPicks = [];
-            picks.forEach(pickId => {
-                const map = entities.find(m => (m.guid || m.class_name) === pickId);
-                if (map) sortedPicks.push(map);
-            });
+            
+            // Check if FACEIT provides explicit pick order
+            if (voting.pick_order && Array.isArray(voting.pick_order) && voting.pick_order.length === picks.length) {
+                console.log('[Veto Order Debug] Using pick_order field for sorting');
+                // Use explicit pick_order if available
+                voting.pick_order.forEach(pickId => {
+                    const map = entities.find(m => (m.guid || m.class_name) === pickId);
+                    if (map) sortedPicks.push(map);
+                });
+            } else {
+                // Fallback: Assume picks array is in chronological order
+                console.log('[Veto Order Debug] Using picks array order (assuming chronological)');
+                picks.forEach(pickId => {
+                    const map = entities.find(m => (m.guid || m.class_name) === pickId);
+                    if (map) sortedPicks.push(map);
+                });
+            }
+            
+            // Sort banned maps by their order in bans array (IMPORTANT: preserve veto order!)
+            const sortedBans = [];
+            
+            // Check if FACEIT provides explicit drop/ban order
+            if (voting.drop_order && Array.isArray(voting.drop_order) && voting.drop_order.length === bans.length) {
+                console.log('[Veto Order Debug] Using drop_order field for sorting');
+                // Use explicit drop_order if available
+                voting.drop_order.forEach(banId => {
+                    const map = entities.find(m => (m.guid || m.class_name) === banId);
+                    if (map) sortedBans.push(map);
+                });
+            } else {
+                // Fallback: Assume bans array is in chronological order
+                console.log('[Veto Order Debug] Using drop array order (assuming chronological)');
+                bans.forEach(banId => {
+                    const map = entities.find(m => (m.guid || m.class_name) === banId);
+                    if (map) sortedBans.push(map);
+                });
+            }
             
             // For BO3/BO5: If we have more picks than expected, the last pick is the decider
             if (sortedPicks.length > expectedPicks && bestOf > 1) {
@@ -588,17 +630,16 @@
             
             // sortedPicks now contains only the regular picks (without decider)
             pickedMaps.push(...sortedPicks);
+            bannedMaps.push(...sortedBans);
             
+            // Add implicitly banned maps (maps that are neither picked nor explicitly banned)
             entities.forEach((map) => {
                 const mapId = map.guid || map.class_name;
                 const isPicked = picks.includes(mapId);
                 const isBanned = bans.includes(mapId);
                 
-                if (isBanned) {
-                    bannedMaps.push(map);
-                } else if (!isPicked) {
-                    // Map is not picked or banned
-                    // Treat as implicitly banned (FACEIT doesn't provide ban order)
+                if (!isPicked && !isBanned) {
+                    // Map is not picked or banned - treat as implicitly banned
                     bannedMaps.push(map);
                 }
             });
@@ -1084,21 +1125,61 @@
                 }
             }
             
-            // Hole gespielte Map
-            let playedMap = '';
+            // Hole gespielte Map(s)
+            const bestOf = data.best_of || 1;
+            let playedMapsHTML = '';
+            
+            const mapNames = {
+                'de_dust2': 'Dust2',
+                'de_mirage': 'Mirage',
+                'de_nuke': 'Nuke',
+                'de_overpass': 'Overpass',
+                'de_ancient': 'Ancient',
+                'de_inferno': 'Inferno',
+                'de_anubis': 'Anubis',
+                'de_vertigo': 'Vertigo'
+            };
+            
             if (data.voting && data.voting.map && data.voting.map.pick && data.voting.map.pick.length > 0) {
-                const mapId = data.voting.map.pick[0];
-                const mapNames = {
-                    'de_dust2': 'Dust2',
-                    'de_mirage': 'Mirage',
-                    'de_nuke': 'Nuke',
-                    'de_overpass': 'Overpass',
-                    'de_ancient': 'Ancient',
-                    'de_inferno': 'Inferno',
-                    'de_anubis': 'Anubis',
-                    'de_vertigo': 'Vertigo'
-                };
-                playedMap = mapNames[mapId] || mapId;
+                const picks = data.voting.map.pick;
+                
+                if (bestOf === 1) {
+                    // BO1: Show single map (keep old behavior)
+                    const mapId = picks[0];
+                    const playedMap = mapNames[mapId] || mapId;
+                    playedMapsHTML = `<div class="outro-map-info">Played on <strong>${playedMap}</strong></div>`;
+                } else if (bestOf === 3 || bestOf === 5) {
+                    // BO3/BO5: Show all picked maps with labels
+                    const mapLabels = [];
+                    
+                    // Determine expected number of picks (excluding decider)
+                    const expectedPicks = bestOf === 3 ? 2 : 4;
+                    
+                    // Regular picks get numbered labels (MAP 1, MAP 2, etc.)
+                    for (let i = 0; i < Math.min(expectedPicks, picks.length); i++) {
+                        const mapId = picks[i];
+                        const mapDisplayName = mapNames[mapId] || mapId;
+                        mapLabels.push(`<strong>MAP ${i + 1}:</strong> ${mapDisplayName}`);
+                    }
+                    
+                    // Last pick is the decider (if we have more than expected regular picks)
+                    if (picks.length > expectedPicks) {
+                        const deciderMapId = picks[picks.length - 1];
+                        const deciderMapName = mapNames[deciderMapId] || deciderMapId;
+                        mapLabels.push(`<strong>DECIDER:</strong> ${deciderMapName}`);
+                    }
+                    
+                    if (mapLabels.length > 0) {
+                        playedMapsHTML = `
+                            <div class="outro-maps-info">
+                                <div class="outro-maps-title">Map Pool</div>
+                                <div class="outro-maps-list">
+                                    ${mapLabels.map(label => `<div class="outro-map-item">${label}</div>`).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
             }
 
             // Baue Outro HTML mit gleichem Style wie die Hauptseite
@@ -1206,6 +1287,35 @@
                         color: var(--accent-red);
                         font-size: 1.4rem;
                     }
+                    .outro-maps-info {
+                        margin-top: 50px;
+                    }
+                    .outro-maps-title {
+                        font-size: 1.8rem;
+                        color: var(--accent-red);
+                        font-weight: 600;
+                        margin-bottom: 20px;
+                        text-transform: uppercase;
+                        letter-spacing: 2px;
+                    }
+                    .outro-maps-list {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 12px;
+                        align-items: center;
+                    }
+                    .outro-map-item {
+                        font-size: 1.3rem;
+                        color: #ccc;
+                        padding: 8px 20px;
+                        background: rgba(255, 255, 255, 0.05);
+                        border-radius: 8px;
+                        border-left: 3px solid var(--accent-blue);
+                    }
+                    .outro-map-item strong {
+                        color: var(--accent-red);
+                        margin-right: 8px;
+                    }
                 </style>
                 <div class="outro-title">MATCH COMPLETE</div>
                 <div class="outro-subtitle">Final Score</div>
@@ -1232,7 +1342,7 @@
                     </div>
                 </div>
                 
-                ${playedMap ? `<div class="outro-map-info">Played on <strong>${playedMap}</strong></div>` : ''}
+                ${playedMapsHTML}
                 
                 <div class="outro-thank-you">
                     <h2>Thank You for Watching!</h2>
