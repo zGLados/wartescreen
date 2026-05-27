@@ -498,15 +498,6 @@
             const entities = voting.entities;
             const picks = voting.pick || [];
             const bans = voting.drop || [];
-            
-            // DEBUG: Log raw voting data to verify order
-            console.log('[Veto Order Debug] Raw picks array:', picks);
-            console.log('[Veto Order Debug] Raw bans/drop array:', bans);
-            console.log('[Veto Order Debug] Full voting object:', voting);
-            console.log('[Veto Order Debug] Checking for additional order fields...');
-            if (voting.pick_order) console.log('[Veto Order Debug] pick_order found:', voting.pick_order);
-            if (voting.drop_order) console.log('[Veto Order Debug] drop_order found:', voting.drop_order);
-            if (voting.vote_history) console.log('[Veto Order Debug] vote_history found:', voting.vote_history);
 
             const totalActions = picks.length + bans.length;
             const totalMaps = entities.length;
@@ -588,7 +579,6 @@
             
             // Check if FACEIT provides explicit pick order
             if (voting.pick_order && Array.isArray(voting.pick_order) && voting.pick_order.length === picks.length) {
-                console.log('[Veto Order Debug] Using pick_order field for sorting');
                 // Use explicit pick_order if available
                 voting.pick_order.forEach(pickId => {
                     const map = entities.find(m => (m.guid || m.class_name) === pickId);
@@ -596,7 +586,6 @@
                 });
             } else {
                 // Fallback: Assume picks array is in chronological order
-                console.log('[Veto Order Debug] Using picks array order (assuming chronological)');
                 picks.forEach(pickId => {
                     const map = entities.find(m => (m.guid || m.class_name) === pickId);
                     if (map) sortedPicks.push(map);
@@ -608,7 +597,6 @@
             
             // Check if FACEIT provides explicit drop/ban order
             if (voting.drop_order && Array.isArray(voting.drop_order) && voting.drop_order.length === bans.length) {
-                console.log('[Veto Order Debug] Using drop_order field for sorting');
                 // Use explicit drop_order if available
                 voting.drop_order.forEach(banId => {
                     const map = entities.find(m => (m.guid || m.class_name) === banId);
@@ -616,7 +604,6 @@
                 });
             } else {
                 // Fallback: Assume bans array is in chronological order
-                console.log('[Veto Order Debug] Using drop array order (assuming chronological)');
                 bans.forEach(banId => {
                     const map = entities.find(m => (m.guid || m.class_name) === banId);
                     if (map) sortedBans.push(map);
