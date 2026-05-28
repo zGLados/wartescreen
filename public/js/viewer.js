@@ -508,10 +508,10 @@
             // Hide timer if veto is complete and setting is enabled
             if (HIDE_TIMER_AFTER_VETO && vetoIsComplete) {
                 if (!isVetoComplete) {
-                    // First time veto is complete - hide timer
+                    // First time veto is complete - hide timer only, keep status visible
                     isVetoComplete = true;
                     timerDisplay.style.display = 'none';
-                    actionDisplay.style.display = 'none';
+                    // Keep actionDisplay visible to show status
                 }
             } else {
                 // Show timer if veto is not complete or setting is disabled
@@ -519,7 +519,7 @@
                     // Veto was complete but now is not (shouldn't happen, but handle it)
                     isVetoComplete = false;
                     timerDisplay.style.display = 'block';
-                    actionDisplay.style.display = 'block';
+                    // actionDisplay remains visible
                 }
                 
                 if (totalActions > lastVetoCount) {
@@ -809,13 +809,13 @@
                 if (!isVetoComplete) {
                     isVetoComplete = true;
                     timerDisplay.style.display = 'none';
-                    actionDisplay.style.display = 'none';
+                    // Keep actionDisplay visible to show status
                 }
             } else {
                 if (isVetoComplete) {
                     isVetoComplete = false;
                     timerDisplay.style.display = 'block';
-                    actionDisplay.style.display = 'block';
+                    // actionDisplay remains visible
                 }
             }
 
