@@ -161,8 +161,6 @@ async function fetchPlayerData(playerId) {
 
 // Calculate player statistics from league matches only
 async function calculatePlayerStats(playerId) {
-    console.log(`[Stats] Calculating stats for ${playerId}...`);
-    
     const data = await fetchPlayerData(playerId);
     if (!data) return null;
 
@@ -184,7 +182,6 @@ async function calculatePlayerStats(playerId) {
     });
     
     const seasonMatches = leagueMatches;
-    console.log(`[Stats] Processing ${seasonMatches.length} ${CURRENT_SEASON.toUpperCase()} EU Open10 D matches (all stages) for ${playerId}`);
 
     // Calculate statistics
     let playerTotalKills = 0;
@@ -316,17 +313,12 @@ async function calculatePlayerStats(playerId) {
                 }
             }
         } catch (error) {
-            console.log(`[Stats] Could not fetch stats for match ${match.match_id}:`, error.message);
+            // Silent fail for individual match stats
         }
     }
 
     const teamLosses = teamMatchesCount - teamWins;
     const teamWinrate = teamMatchesCount > 0 ? Math.round((teamWins / teamMatchesCount) * 100) : 0;
-    
-    console.log(`[Stats] Stats calculated for ${playerId}:`);
-    console.log(`  - Player: ${playerValidMatches} matches played, ${playerMvps} MVPs`);
-    console.log(`  - Team: ${teamWins}W-${teamLosses}L (${teamMatchesCount} total matches, ${teamWinrate}% winrate)`);
-    console.log(`  - Team K/D: ${teamTotalKills}K/${teamTotalDeaths}D across ${teamMatchesCount} season matches`);
 
     // Calculate averages (all from league matches only)
     const avgKills = playerValidMatches > 0 && playerTotalKills > 0 ? (playerTotalKills / playerValidMatches).toFixed(1) : 'N/A';
@@ -354,7 +346,6 @@ async function updatePlayerStatsCache(playerId) {
                 data: stats,
                 timestamp: Date.now()
             });
-            console.log(`[Stats Cache] Updated cache for ${playerId}`);
             return stats;
         }
     } catch (error) {
@@ -365,15 +356,11 @@ async function updatePlayerStatsCache(playerId) {
 
 // Update all player stats caches
 async function updateAllPlayerStatsCache() {
-    console.log('[Stats Cache] Updating all player stats...');
-    
     for (const player of TRACKED_PLAYERS) {
         await updatePlayerStatsCache(player.id);
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    
-    console.log('[Stats Cache] All player stats updated');
 }
 
 // Get cached stats or fetch if not available/expired
@@ -382,12 +369,10 @@ async function getCachedPlayerStats(playerId) {
     
     // Check if cache is valid
     if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-        console.log(`[Stats Cache] Serving cached stats for ${playerId}`);
         return cached.data;
     }
     
     // Cache miss or expired - fetch new data
-    console.log(`[Stats Cache] Cache miss/expired for ${playerId}, fetching...`);
     return await updatePlayerStatsCache(playerId);
 }
 
@@ -396,7 +381,6 @@ setInterval(updateAllPlayerStatsCache, CACHE_DURATION);
 
 // Initial cache population on server start (async, don't wait)
 setTimeout(() => {
-    console.log('[Stats Cache] Starting initial cache population...');
     updateAllPlayerStatsCache().catch(err => {
         console.error('[Stats Cache] Initial population failed:', err);
     });
@@ -657,8 +641,10 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
         const playerData = await playerResponse.json();
         const actualPlayerId = playerData.player_id;
         
-        // Fetch more matches to ensure we get enough league matches after filtering
-        const historyResponse = await fetch(`https://open.faceit.com/data/v4/players/${actualPlayerId}/history?game=cs2&limit=${limit * 3}`, { headers });
+        // Fetch more matches to ensure we get enough league matches after filtering and grouping
+        // If we want 5 series and each BO3 has 3 maps, we need at least 15 matches + buffer for non-league matches
+        const fetchLimit = Math.max(50, limit * 10); // Fetch at least 50 matches to ensure we have enough data
+        const historyResponse = await fetch(`https://open.faceit.com/data/v4/players/${actualPlayerId}/history?game=cs2&limit=${fetchLimit}`, { headers });
         const historyData = await historyResponse.json();
         
         if (!historyData.items || historyData.items.length === 0) {
@@ -673,7 +659,8 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
         const matches = [];
         
         for (const match of historyData.items) {
-            if (matches.length >= limit) break;
+            // Don't break early - collect more matches to ensure we can group BO3s properly
+            // We'll limit after grouping
             
             // Filter: Only include league matches
             const compName = (match.competition_name || '').toLowerCase();
@@ -698,6 +685,32 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
                 
                 if (!statsData.rounds || statsData.rounds.length === 0) {
                     continue;
+                }
+                
+                // Also fetch match details to get best_of and series score
+                const matchDetailsResponse = await fetch(`https://open.faceit.com/data/v4/matches/${match.match_id}`, { headers });
+                const matchDetails = matchDetailsResponse.ok ? await matchDetailsResponse.json() : null;
+                const bestOf = matchDetails?.best_of || 1;
+                
+                // Get series score from match details (for BO3/BO5)
+                let seriesScore = null;
+                let pickedMaps = [];
+                let detailedMapResults = [];
+                if (matchDetails && matchDetails.results && matchDetails.results.score && bestOf > 1) {
+                    seriesScore = matchDetails.results.score;
+                    
+                    // Get picked maps from voting
+                    if (matchDetails.voting && matchDetails.voting.map && matchDetails.voting.map.pick) {
+                        pickedMaps = matchDetails.voting.map.pick.map(mapId => {
+                            const mapName = mapId.replace('de_', '').toUpperCase();
+                            return mapName;
+                        });
+                    }
+                    
+                    // Get detailed results for each map (scores)
+                    if (matchDetails.detailed_results && Array.isArray(matchDetails.detailed_results)) {
+                        detailedMapResults = matchDetails.detailed_results;
+                    }
                 }
                 
                 const round = statsData.rounds[0];
@@ -752,6 +765,24 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
                 const mapName = round.round_stats.Map || 'Unknown';
                 const cleanMapName = mapName.replace('de_', '').toUpperCase();
                 
+                // Determine which faction our team is for series score
+                let ourSeriesScore = null;
+                let enemySeriesScore = null;
+                if (seriesScore && matchDetails) {
+                    // Find our faction by matching team names
+                    const faction1Name = matchDetails.teams?.faction1?.name;
+                    const faction2Name = matchDetails.teams?.faction2?.name;
+                    const ourTeamName = ourTeam.team_stats.Team;
+                    
+                    if (faction1Name === ourTeamName || ourTeamName.includes(faction1Name) || faction1Name.includes(ourTeamName)) {
+                        ourSeriesScore = seriesScore.faction1;
+                        enemySeriesScore = seriesScore.faction2;
+                    } else if (faction2Name === ourTeamName || ourTeamName.includes(faction2Name) || faction2Name.includes(ourTeamName)) {
+                        ourSeriesScore = seriesScore.faction2;
+                        enemySeriesScore = seriesScore.faction1;
+                    }
+                }
+                
                 matches.push({
                     match_id: match.match_id,
                     competition_name: match.competition_name,
@@ -763,6 +794,10 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
                     enemyScore: enemyScore,
                     isWin: isWin,
                     map: cleanMapName,
+                    bestOf: bestOf,
+                    seriesScore: ourSeriesScore !== null ? { our: ourSeriesScore, enemy: enemySeriesScore } : null,
+                    pickedMaps: pickedMaps.length > 0 ? pickedMaps : null,
+                    detailedMapResults: detailedMapResults.length > 0 ? detailedMapResults : null,
                     firstHalf: {
                         our: ourFirstHalf,
                         enemy: enemyFirstHalf
@@ -779,10 +814,199 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
             }
         }
         
+        console.log(`[API] Collected ${matches.length} raw league matches before grouping`);
+        
+        // Debug: Log first few matches to see data
+        if (matches.length > 0) {
+            console.log(`[API] Sample matches for grouping:`);
+            matches.slice(0, 5).forEach((m, idx) => {
+                const date = new Date(m.started_at * 1000).toDateString();
+                console.log(`  ${idx}: ${m.ourTeam} vs ${m.enemyTeam} on ${date} - ${m.competition_name}`);
+            });
+        }
+        
+        // Group BO3 matches (matches against same opponent on same day)
+        const groupedMatches = [];
+        const processedMatchIds = new Set();
+        
+        for (let i = 0; i < matches.length; i++) {
+            if (processedMatchIds.has(matches[i].match_id)) continue;
+            
+            const currentMatch = matches[i];
+            const matchDate = new Date(currentMatch.started_at * 1000).toDateString();
+            
+            // Find other matches against same opponent on same day
+            const relatedMatches = [currentMatch];
+            processedMatchIds.add(currentMatch.match_id);
+            
+            for (let j = i + 1; j < matches.length; j++) {
+                const otherMatch = matches[j];
+                const otherDate = new Date(otherMatch.started_at * 1000).toDateString();
+                
+                if (otherMatch.enemyTeam === currentMatch.enemyTeam && 
+                    otherDate === matchDate &&
+                    !processedMatchIds.has(otherMatch.match_id)) {
+                    relatedMatches.push(otherMatch);
+                    processedMatchIds.add(otherMatch.match_id);
+                    console.log(`[API] Grouped match ${otherMatch.match_id} with ${currentMatch.match_id} (same opponent: ${currentMatch.enemyTeam}, same date: ${matchDate})`);
+                }
+            }
+            
+            // If multiple matches found, create a BO3/BO5 entry
+            if (relatedMatches.length > 1) {
+                // Calculate series score (wins)
+                const ourWins = relatedMatches.filter(m => m.isWin).length;
+                const enemyWins = relatedMatches.length - ourWins;
+                const actualBestOf = relatedMatches[0].bestOf || relatedMatches.length;
+                
+                console.log(`[API] Created BO${actualBestOf} series: ${currentMatch.ourTeam} vs ${currentMatch.enemyTeam} (${ourWins}-${enemyWins}, ${relatedMatches.length} maps played)`);
+                
+                groupedMatches.push({
+                    match_id: currentMatch.match_id,
+                    competition_name: currentMatch.competition_name,
+                    started_at: currentMatch.started_at,
+                    finished_at: currentMatch.finished_at,
+                    ourTeam: currentMatch.ourTeam,
+                    enemyTeam: currentMatch.enemyTeam,
+                    ourScore: ourWins,
+                    enemyScore: enemyWins,
+                    isWin: ourWins > enemyWins,
+                    isSeries: true,
+                    bestOf: actualBestOf,
+                    maps: relatedMatches.map(m => ({
+                        map: m.map,
+                        ourScore: m.ourScore,
+                        enemyScore: m.enemyScore,
+                        isWin: m.isWin,
+                        firstHalf: m.firstHalf,
+                        secondHalf: m.secondHalf
+                    }))
+                });
+            } else if (currentMatch.bestOf > 1) {
+                // Single match but it's part of a BO3/BO5 (other maps not played or not in history)
+                // Use series score from FACEIT if available
+                const ourScore = currentMatch.seriesScore ? currentMatch.seriesScore.our : (currentMatch.isWin ? 1 : 0);
+                const enemyScore = currentMatch.seriesScore ? currentMatch.seriesScore.enemy : (currentMatch.isWin ? 0 : 1);
+                
+                // Build maps array - try to use detailed results if available
+                const mapsArray = [];
+                
+                if (currentMatch.pickedMaps && currentMatch.detailedMapResults && currentMatch.detailedMapResults.length > 1) {
+                    // We have detailed results for multiple maps
+                    // Determine which faction is "our team" based on the first map we know
+                    const ourTeamIsFaction1 = currentMatch.isWin === (currentMatch.detailedMapResults[0].winner === 'faction1');
+                    
+                    console.log(`[API] Found ${currentMatch.detailedMapResults.length} detailed map results for ${currentMatch.ourTeam} vs ${currentMatch.enemyTeam}`);
+                    
+                    // Fetch stats again to get all rounds with half scores
+                    let allRounds = null;
+                    try {
+                        const statsResponse = await fetch(`https://open.faceit.com/data/v4/matches/${currentMatch.match_id}/stats`, { headers });
+                        if (statsResponse.ok) {
+                            const statsData = await statsResponse.json();
+                            allRounds = statsData.rounds || [];
+                            console.log(`[API] Fetched ${allRounds.length} rounds with half scores`);
+                        }
+                    } catch (err) {
+                        console.warn(`[API] Could not fetch rounds for half scores: ${err.message}`);
+                    }
+                    
+                    // Create map entries for each detailed result
+                    currentMatch.detailedMapResults.forEach((mapResult, idx) => {
+                        const mapName = currentMatch.pickedMaps[idx];
+                        const ourMapScore = ourTeamIsFaction1 ? mapResult.factions.faction1.score : mapResult.factions.faction2.score;
+                        const enemyMapScore = ourTeamIsFaction1 ? mapResult.factions.faction2.score : mapResult.factions.faction1.score;
+                        const mapIsWin = (ourTeamIsFaction1 && mapResult.winner === 'faction1') || (!ourTeamIsFaction1 && mapResult.winner === 'faction2');
+                        
+                        // Try to find half scores from stats rounds
+                        let firstHalf = { our: 0, enemy: 0 };
+                        let secondHalf = { our: 0, enemy: 0 };
+                        
+                        if (allRounds && allRounds[idx]) {
+                            const round = allRounds[idx];
+                            const teams = round.teams;
+                            if (teams && teams.length >= 2) {
+                                // Find our team by matching team name
+                                let ourTeam = teams.find(t => t.team_stats?.Team === currentMatch.ourTeam);
+                                let enemyTeam = teams.find(t => t.team_stats?.Team === currentMatch.enemyTeam);
+                                
+                                // If not found by name, use faction matching
+                                if (!ourTeam || !enemyTeam) {
+                                    ourTeam = ourTeamIsFaction1 ? teams[0] : teams[1];
+                                    enemyTeam = ourTeamIsFaction1 ? teams[1] : teams[0];
+                                }
+                                
+                                if (ourTeam && enemyTeam) {
+                                    firstHalf.our = parseInt(ourTeam.team_stats?.['First Half Score'] || 0);
+                                    secondHalf.our = parseInt(ourTeam.team_stats?.['Second Half Score'] || 0);
+                                    firstHalf.enemy = parseInt(enemyTeam.team_stats?.['First Half Score'] || 0);
+                                    secondHalf.enemy = parseInt(enemyTeam.team_stats?.['Second Half Score'] || 0);
+                                }
+                            }
+                        }
+                        
+                        mapsArray.push({
+                            map: mapName,
+                            ourScore: ourMapScore,
+                            enemyScore: enemyMapScore,
+                            isWin: mapIsWin,
+                            firstHalf: firstHalf,
+                            secondHalf: secondHalf
+                        });
+                    });
+                    
+                    console.log(`[API] Reconstructed ${mapsArray.length} maps for BO${currentMatch.bestOf} series with half scores`);
+                } else {
+                    // Fallback: only have one map in history
+                    mapsArray.push({
+                        map: currentMatch.map,
+                        ourScore: currentMatch.ourScore,
+                        enemyScore: currentMatch.enemyScore,
+                        isWin: currentMatch.isWin,
+                        firstHalf: currentMatch.firstHalf,
+                        secondHalf: currentMatch.secondHalf
+                    });
+                }
+                
+                console.log(`[API] Single match marked as BO${currentMatch.bestOf}: ${currentMatch.ourTeam} vs ${currentMatch.enemyTeam} (${ourScore}-${enemyScore} series${currentMatch.seriesScore ? ' from FACEIT' : ''}, ${mapsArray.length} maps available)`);
+                
+                groupedMatches.push({
+                    match_id: currentMatch.match_id,
+                    competition_name: currentMatch.competition_name,
+                    started_at: currentMatch.started_at,
+                    finished_at: currentMatch.finished_at,
+                    ourTeam: currentMatch.ourTeam,
+                    enemyTeam: currentMatch.enemyTeam,
+                    ourScore: ourScore,
+                    enemyScore: enemyScore,
+                    isWin: currentMatch.isWin,
+                    isSeries: true,
+                    bestOf: currentMatch.bestOf,
+                    hasFullSeriesScore: !!currentMatch.seriesScore,
+                    pickedMaps: currentMatch.pickedMaps || null,
+                    maps: mapsArray
+                });
+            } else {
+                // Single match (BO1)
+                groupedMatches.push({
+                    ...currentMatch,
+                    isSeries: false,
+                    bestOf: 1
+                });
+            }
+        }
+        
+        console.log(`[API] Grouped ${matches.length} raw matches into ${groupedMatches.length} entries (series + singles)`);
+        
+        // Take only the requested limit after grouping
+        const finalMatches = groupedMatches.slice(0, limit);
+        
+        console.log(`[API] Returning ${finalMatches.length} matches after limit of ${limit}`);
+        
         const response = {
             success: true,
-            matches: matches,
-            count: matches.length
+            matches: finalMatches,
+            count: finalMatches.length
         };
         
         // Cache the results

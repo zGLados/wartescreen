@@ -51,6 +51,8 @@
     flex-direction: column;
     gap: 12px;
     margin-bottom: 30px;
+    width: 100%;
+    position: relative;
 }
 
 /* Match Row - Horizontal Layout */
@@ -66,6 +68,16 @@
     align-items: center;
     gap: 20px;
     min-height: 80px;
+    position: relative;
+    width: 100%;
+}
+
+/* Series card without map image - wider for multiple maps */
+.match-card.series-card {
+    grid-template-columns: 100px 200px 1fr 150px 120px;
+    min-height: auto;
+    padding: 20px 25px;
+    align-items: center;
 }
 
 .match-card.win {
@@ -120,7 +132,7 @@
 .competition-name {
     font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.6);
-    text-align: left;
+    text-align: center;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -227,7 +239,7 @@
 .match-date {
     font-size: 0.75rem;
     color: rgba(255, 255, 255, 0.5);
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
 }
 
@@ -272,6 +284,10 @@
         font-size: 0.95rem;
     }
     
+    .match-card.series-card {
+        grid-template-columns: 90px 150px 1fr 100px;
+    }
+    
     .team-score {
         font-size: 1.6rem;
     }
@@ -284,6 +300,10 @@
         font-size: 0.9rem;
     }
     
+    .match-card.series-card {
+        grid-template-columns: 80px 120px 1fr 90px;
+    }
+    
     .team-score {
         font-size: 1.4rem;
     }
@@ -291,4 +311,131 @@
     .title {
         font-size: 2rem;
     }
+}
+
+/* BO3/BO5 Series Styles */
+.series-maps-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    min-width: 250px;
+}
+
+.series-note {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+    text-align: center;
+    margin-top: 5px;
+}
+
+.series-map {
+    display: grid;
+    grid-template-columns: 1fr 60px 120px;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: 5px;
+    transition: background 0.2s ease;
+}
+
+.series-map.map-win {
+    background: rgba(46, 204, 113, 0.1);
+    border-left: 3px solid var(--pick-green);
+}
+
+.series-map.map-loss {
+    background: rgba(255, 77, 77, 0.1);
+    border-left: 3px solid var(--ban-red);
+}
+
+.series-map.map-picked {
+    background: rgba(255, 255, 255, 0.05);
+    border-left: 3px solid rgba(255, 255, 255, 0.3);
+}
+
+.series-map .map-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: left;
+}
+
+.series-map .map-score {
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.series-map.map-win .map-score {
+    color: var(--pick-green);
+}
+
+.series-map.map-loss .map-score {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.series-map.map-picked .map-score {
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 1.5rem;
+}
+
+.series-map .half-scores-inline {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: right;
+}
+
+/* Series Map Images - Split Display */
+.series-map-images {
+    position: relative;
+    width: 100%;
+    height: 80px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.series-map-img {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+/* 2 Maps - Diagonal Split */
+.series-map-images-2 .series-map-img-0 {
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+    z-index: 2;
+}
+
+.series-map-images-2 .series-map-img-1 {
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    z-index: 1;
+}
+
+/* 3 Maps - Horizontal Thirds */
+.series-map-images-3 .series-map-img-0 {
+    clip-path: polygon(0 0, 100% 0, 100% 33.33%, 0 33.33%);
+    z-index: 3;
+}
+
+.series-map-images-3 .series-map-img-1 {
+    clip-path: polygon(0 33.33%, 100% 33.33%, 100% 66.66%, 0 66.66%);
+    z-index: 2;
+}
+
+.series-map-images-3 .series-map-img-2 {
+    clip-path: polygon(0 66.66%, 100% 66.66%, 100% 100%, 0 100%);
+    z-index: 1;
+}
+
+.series-map-images:hover .series-map-img {
+    transform: scale(1.05);
 }

@@ -140,12 +140,15 @@ function renderMatches(matches) {
     const grid = document.getElementById('matches-grid');
     grid.innerHTML = '';
     
+    console.log(`[Past Matches] Rendering ${matches.length} matches`);
+    
     if (matches.length === 0) {
         grid.innerHTML = '<div class="loading"><p>No matches found</p></div>';
         return;
     }
     
     matches.forEach((match, index) => {
+        console.log(`[Past Matches] Rendering match ${index}: ${match.ourTeam} vs ${match.enemyTeam}, isSeries: ${match.isSeries}, bestOf: ${match.bestOf}`);
         const card = createMatchCard(match, index);
         grid.appendChild(card);
     });
@@ -155,6 +158,7 @@ function renderMatches(matches) {
 function createMatchCard(match, index) {
     const card = document.createElement('div');
     card.className = `match-card ${match.isWin ? 'win' : 'loss'}`;
+    if (match.isSeries) card.classList.add('series-card');
     card.style.animationDelay = `${index * 0.05}s`;
     
     const date = new Date(match.started_at * 1000);
@@ -174,36 +178,91 @@ function createMatchCard(match, index) {
     const ourScore = match.ourScore;
     const enemyScore = match.enemyScore;
     
-    card.innerHTML = `
-        <div class="match-result-badge ${match.isWin ? 'win' : 'loss'}">
-            ${match.isWin ? 'WIN' : 'LOSS'}
-        </div>
+    // Check if this is a series (BO3/BO5)
+    if (match.isSeries && match.maps) {
+        // BO3/BO5 Display - only show maps that were actually played
+        const mapsHTML = match.maps.map(mapData => {
+            const hasHalfScores = mapData.firstHalf && (mapData.firstHalf.our > 0 || mapData.firstHalf.enemy > 0 || mapData.secondHalf.our > 0 || mapData.secondHalf.enemy > 0);
+            return `
+                <div class="series-map ${mapData.isWin ? 'map-win' : 'map-loss'}">
+                    <div class="map-label">${mapData.map}</div>
+                    <div class="map-score">${mapData.ourScore}-${mapData.enemyScore}</div>
+                    ${hasHalfScores ? `<div class="half-scores-inline">(${mapData.firstHalf.our}-${mapData.firstHalf.enemy} | ${mapData.secondHalf.our}-${mapData.secondHalf.enemy})</div>` : '<div class="half-scores-inline">&nbsp;</div>'}
+                </div>
+            `;
+        }).join('');
         
-        <div class="competition-name">${match.competition_name || 'Match'}</div>
+        // Always show series score when we have it
+        const showSeriesScore = match.hasFullSeriesScore || match.maps.length > 1;
         
-        <div class="match-teams">
-            <div class="team-box ${match.isWin ? 'winner' : 'loser'}">
-                <div class="team-name">${ourTeam}</div>
-                <div class="team-score">${ourScore}</div>
+        // Generate map images HTML for series
+        const mapImagesHTML = match.maps.map((mapData, idx) => {
+            const imgSrc = `/maps/${getMapImage(mapData.map)}`;
+            return `<img src="${imgSrc}" alt="${mapData.map}" class="series-map-img series-map-img-${idx}" onerror="this.style.display='none'">`;
+        }).join('');
+        
+        card.innerHTML = `
+            <div class="match-result-badge ${match.isWin ? 'win' : 'loss'}">
+                ${match.isWin ? 'WIN' : 'LOSS'}
             </div>
             
-            <div class="map-name-center">
-                <div class="map-label">${match.map || 'UNKNOWN'}</div>
-                <div class="half-scores-inline">(${match.firstHalf.our}-${match.firstHalf.enemy} | ${match.secondHalf.our}-${match.secondHalf.enemy})</div>
+            <div class="competition-name">${match.competition_name || 'Match'} (BO${match.bestOf})</div>
+            
+            <div class="match-teams">
+                <div class="team-box ${match.isWin ? 'winner' : 'loser'}">
+                    <div class="team-name">${ourTeam}</div>
+                    ${showSeriesScore ? `<div class="team-score">${ourScore}</div>` : ''}
+                </div>
+                
+                <div class="series-maps-container">
+                    ${mapsHTML}
+                </div>
+                
+                <div class="team-box ${!match.isWin ? 'winner' : 'loser'}">
+                    <div class="team-name">${enemyTeam}</div>
+                    ${showSeriesScore ? `<div class="team-score">${enemyScore}</div>` : ''}
+                </div>
             </div>
             
-            <div class="team-box ${!match.isWin ? 'winner' : 'loser'}">
-                <div class="team-name">${enemyTeam}</div>
-                <div class="team-score">${enemyScore}</div>
+            <div class="series-map-images series-map-images-${match.maps.length}">
+                ${mapImagesHTML}
             </div>
-        </div>
-        
-        <div class="map-info">
-            <img src="/maps/${getMapImage(match.map || 'MIRAGE')}" alt="${match.map}" class="map-image" onerror="this.style.display='none'">
-        </div>
-        
-        <div class="match-date">${dateStr}<br>${timeStr}</div>
-    `;
+            
+            <div class="match-date">${dateStr}<br>${timeStr}</div>
+        `;
+    } else {
+        // BO1 Display (existing code)
+        card.innerHTML = `
+            <div class="match-result-badge ${match.isWin ? 'win' : 'loss'}">
+                ${match.isWin ? 'WIN' : 'LOSS'}
+            </div>
+            
+            <div class="competition-name">${match.competition_name || 'Match'}</div>
+            
+            <div class="match-teams">
+                <div class="team-box ${match.isWin ? 'winner' : 'loser'}">
+                    <div class="team-name">${ourTeam}</div>
+                    <div class="team-score">${ourScore}</div>
+                </div>
+                
+                <div class="map-name-center">
+                    <div class="map-label">${match.map || 'UNKNOWN'}</div>
+                    <div class="half-scores-inline">(${match.firstHalf.our}-${match.firstHalf.enemy} | ${match.secondHalf.our}-${match.secondHalf.enemy})</div>
+                </div>
+                
+                <div class="team-box ${!match.isWin ? 'winner' : 'loser'}">
+                    <div class="team-name">${enemyTeam}</div>
+                    <div class="team-score">${enemyScore}</div>
+                </div>
+            </div>
+            
+            <div class="map-info">
+                <img src="/maps/${getMapImage(match.map || 'MIRAGE')}" alt="${match.map}" class="map-image" onerror="this.style.display='none'">
+            </div>
+            
+            <div class="match-date">${dateStr}<br>${timeStr}</div>
+        `;
+    }
     
     return card;
 }
