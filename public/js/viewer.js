@@ -1427,8 +1427,26 @@
                     
                 case 'ONGOING':
                     actionDisplay.textContent = "Match is live!";
-                    if (!hasTimerOverride && !isOngoingTimerRunning && !timerInterval) {
-                        // 2 minute timer for FACEIT delay (start only once)
+                    
+                    // Check if FACEIT provides a new configured_at for next map (BO3/BO5)
+                    if (data.configured_at && data.configured_at > now - 180) {
+                        // New configured_at detected (within last 3 minutes)
+                        // This indicates a new map is starting soon in a BO3/BO5
+                        if (!hasTimerOverride) {
+                            const elapsed = now - data.configured_at;
+                            const remaining = Math.max(0, 180 - elapsed);
+                            
+                            // Start or update timer if remaining time differs significantly
+                            if (!timerInterval || Math.abs(timeLeft - remaining) > 10) {
+                                console.log('[BO3 Timer] New configured_at detected during ONGOING - starting timer:', remaining);
+                                isOngoingTimerRunning = false; // Reset flag to allow new timer
+                                if (remaining > 0) {
+                                    startTimer(remaining);
+                                }
+                            }
+                        }
+                    } else if (!hasTimerOverride && !isOngoingTimerRunning && !timerInterval) {
+                        // Fallback: No new configured_at, use default 2 minute timer (start only once)
                         isOngoingTimerRunning = true;
                         startTimer(120);
                     }
