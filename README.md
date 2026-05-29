@@ -8,6 +8,7 @@ Professional waiting screen for FACEIT CS2 matches with map veto display, countd
 - **Admin Interface**: Manual timer and veto control per match
 - **Password Protection**: Secured by HTTP Basic Authentication
 - **FACEIT API Integration**: Auto-fetch teams, veto, times, and results
+- **PostgreSQL Integration**: 🆕 CS Demo Manager database support for enhanced player stats
 - **Map Veto Animations**: Smooth 2s staggered ban/pick reveals
 - **Match Outro**: Final scores, winner badge, and match summary
 - **Partner Logos**: Display sponsor logos at bottom (auto-detected)
@@ -202,6 +203,65 @@ wartescreen/
 - `POST /api/veto/:matchId` - Toggle veto display (`{ "showVeto": true }`)
 - `GET /api/veto/:matchId` - Get veto setting
 - `DELETE /api/veto/:matchId` - Reset to default
+
+### Player Stats
+- `GET /api/player-stats/:playerId` - Get player statistics
+- `GET /api/player-stats` - Get all tracked players stats
+
+## 🗄️ PostgreSQL Integration (CS Demo Manager)
+
+**NEW!** This project now supports integration with [CS Demo Manager](https://cs-demo-manager.com/) PostgreSQL database for enhanced player statistics.
+
+### Features
+- **HLTV Rating 2.0** - Professional performance metrics
+- **ADR** - Average Damage per Round
+- **Advanced Stats** - Aces, 4Ks, Headshot %, KAST %, and more
+- **Local Data** - No internet required once set up
+- **All Demos** - Statistics from all analyzed demos, not just FACEIT matches
+
+### Quick Setup
+
+1. **Install dependencies** (includes `pg` PostgreSQL client):
+   ```bash
+   npm install
+   ```
+
+2. **Configure `.env`** with your PostgreSQL credentials:
+   ```env
+   POSTGRES_HOST=localhost
+   POSTGRES_PORT=5432
+   POSTGRES_DATABASE=csdm
+   POSTGRES_USER=postgres
+   POSTGRES_PASSWORD=your-password
+   USE_POSTGRES_STATS=true
+   
+   # Season Configuration (adjust for each new season)
+   SEASON_START_DATE=2026-04-06
+   PLAYOFF_START_DATE=2026-05-26
+   ```
+
+3. **Add Steam IDs** to `server.js`:
+   ```javascript
+   const TRACKED_PLAYERS = [
+       { id: 'Aindrew', name: 'Aindrew', steamId: 'STEAM_ID_HERE' },
+       // Add your players here...
+   ];
+   ```
+
+4. **Restart server** and verify connection:
+   ```
+   [PostgreSQL] Connected to CS Demo Manager database
+   ```
+
+### Full Documentation
+
+See **[POSTGRESQL.md](POSTGRESQL.md)** for complete setup instructions, database schema details, and troubleshooting.
+
+### Data Sources
+
+- **Player Statistics**: PostgreSQL (CS Demo Manager) only
+- **Match Veto & Scheduling**: FACEIT API
+- **Past Matches**: FACEIT API
 
 ## 🎨 Customization
 

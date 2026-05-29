@@ -188,15 +188,48 @@ async function displayPlayer(playerId, playerName) {
 
     // Update UI
     playerNameEl.textContent = playerName.toUpperCase();
-    playerAvatarEl.src = stats.player.avatar || '/logo_T_default.png';
+    
+    // Set player image based on playerId (use local playerpic images)
+    const playerImageMap = {
+        'Aindrew': '/playerpic/aindrew.png',
+        'Fucs2i': '/playerpic/fucsii.png',
+        'cLn395': '/playerpic/cln.png',
+        'Bravo1911': '/playerpic/bravo.png',
+        'Henzzik': '/playerpic/henzzik.png'
+    };
+    
+    playerAvatarEl.src = playerImageMap[playerId] || '/logo_T_default.png';
     playerAvatarEl.alt = playerName;
 
-    stat1.querySelector('.stat-value').textContent = `${stats.mvps}`;
-    stat2.querySelector('.stat-value').textContent = stats.avgKills;
-    stat3.querySelector('.stat-value').textContent = `${stats.winrate}%`;
-    stat4.querySelector('.stat-value').textContent = stats.kd;
+    // Helper function to format stat with Regular Season / Playoffs split
+    function formatSplitStat(regular, playoffs, decimals = 2) {
+        if (!regular && !playoffs) return '-';
+        if (!regular) return `- / ${playoffs.toFixed ? playoffs.toFixed(decimals) : playoffs}`;
+        if (!playoffs) return `${regular.toFixed ? regular.toFixed(decimals) : regular} / -`;
+        return `${regular.toFixed ? regular.toFixed(decimals) : regular} / ${playoffs.toFixed ? playoffs.toFixed(decimals) : playoffs}`;
+    }
 
+    // Display PostgreSQL stats - Split by Regular Season / Playoffs
+    // Stat 1: HLTV Rating 2.0 (professional performance metric)
+    stat1.querySelector('.stat-value').textContent = formatSplitStat(stats.regular?.avgRating2, stats.playoffs?.avgRating2);
+    stat1.querySelector('.stat-label').textContent = 'HLTV Rating 2.0 (Reg / PO)';
+    
+    // Stat 2: ADR (Average Damage per Round)
+    stat2.querySelector('.stat-value').textContent = formatSplitStat(stats.regular?.avgAdr, stats.playoffs?.avgAdr, 1);
+    stat2.querySelector('.stat-label').textContent = 'ADR (Reg / PO)';
+    
+    // Stat 3: Headshot % (aim precision)
+    const hsRegular = stats.regular?.avgHeadshotPct ? stats.regular.avgHeadshotPct : null;
+    const hsPlayoffs = stats.playoffs?.avgHeadshotPct ? stats.playoffs.avgHeadshotPct : null;
+    stat3.querySelector('.stat-value').textContent = formatSplitStat(hsRegular, hsPlayoffs, 1) + (hsRegular || hsPlayoffs ? '%' : '');
+    stat3.querySelector('.stat-label').textContent = 'Headshot % (Reg / PO)';
+    
+    // Stat 4: K/D Ratio
+    stat4.querySelector('.stat-value').textContent = formatSplitStat(stats.regular?.overallKd, stats.playoffs?.overallKd);
+    stat4.querySelector('.stat-label').textContent = 'K/D Ratio (Reg / PO)';
+    
     console.log(`Displayed stats for ${playerName}:`, stats);
+    console.log(`Regular Season: ${stats.regular?.matchCount} matches, Playoffs: ${stats.playoffs?.matchCount} matches`);
     
     // Display cache info in console
     if (stats.cachedAt) {

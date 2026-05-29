@@ -1,11 +1,48 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const { Pool } = require('pg');
 const { compressAllVideos } = require('./scripts/compress-videos');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// PostgreSQL Configuration (CS Demo Manager)
+const USE_POSTGRES_STATS = process.env.USE_POSTGRES_STATS === 'true';
+let pgPool = null;
+
+if (USE_POSTGRES_STATS) {
+    try {
+        pgPool = new Pool({
+            host: process.env.POSTGRES_HOST || 'localhost',
+            port: parseInt(process.env.POSTGRES_PORT) || 5432,
+            database: process.env.POSTGRES_DATABASE || 'csdm',
+            user: process.env.POSTGRES_USER || 'postgres',
+            password: process.env.POSTGRES_PASSWORD,
+            max: 10,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 5000,
+        });
+        
+        // Test connection
+        pgPool.query('SELECT NOW()', (err) => {
+            if (err) {
+                console.error('[PostgreSQL] Connection failed:', err.message);
+                console.error('[PostgreSQL] Falling back to FACEIT API');
+                pgPool = null;
+            } else {
+                console.log('[PostgreSQL] Connected to CS Demo Manager database');
+            }
+        });
+    } catch (error) {
+        console.error('[PostgreSQL] Setup failed:', error.message);
+        console.error('[PostgreSQL] Falling back to FACEIT API');
+        pgPool = null;
+    }
+} else {
+    console.log('[PostgreSQL] Disabled - using FACEIT API for stats');
+}
 
 // FACEIT API Configuration
 const FACEIT_API_KEY = process.env.FACEIT_API_KEY || '84e84dc8-0f8a-4497-85ff-5d282933a213';
@@ -29,12 +66,259 @@ const manualVetoData = new Map(); // For manual pick/ban data (complete veto ove
 
 // List of players to track
 const TRACKED_PLAYERS = [
-    { id: 'Aindrew', name: 'Aindrew' },
-    { id: 'Fucs2i', name: 'Fucsii' },
-    { id: 'cLn395', name: 'cLn' },
-    { id: 'Bravo1911', name: 'Bravo' },
-    { id: 'Henzzik', name: 'Henzzik' }
+    { id: 'Aindrew', name: 'Aindrew', steamId: '76561198027564721' },
+    { id: 'Fucs2i', name: 'Fucsii', steamId: '76561198018570338' },
+    { id: 'cLn395', name: 'cLn', steamId: '76561198047827159' },
+    { id: 'Bravo1911', name: 'Bravo', steamId: '76561198128596677' },
+    { id: 'Henzzik', name: 'Henzzik', steamId: '76561198849971068' }
 ];
+
+// ========== POSTGRESQL STATS FUNCTIONS ==========
+
+/**
+ * Get player statistics from CS Demo Manager PostgreSQL database
+ * @param {string} steamId - Steam ID of the player (e.g., '76561198064695692')
+ * @returns {Promise<Object|null>} Player statistics or null
+ */
+async function getPlayerStatsFromPostgres(steamId) {
+    if (!pgPool) {
+        console.warn('[PostgreSQL] Pool not available, cannot fetch stats');
+        return null;
+    }
+    
+    try {
+        // Season dates from environment variables
+        // SEASON_START: When the regular season began (e.g., '2026-04-06' for S57)
+        // PLAYOFF_START: When playoffs began (e.g., '2026-05-26' for S57)
+        const SEASON_START_DATE = process.env.SEASON_START_DATE || '2026-04-06';
+        const PLAYOFF_START_DATE = process.env.PLAYOFF_START_DATE || '2026-05-26';
+        
+        // Query to get comprehensive player statistics split by Regular Season / Playoffs
+        const query = `
+            SELECT 
+                p.steam_id,
+                p.name as player_name,
+                
+                -- Regular Season Stats (before 2026-05-26)
+                COUNT(DISTINCT CASE WHEN DATE(d.date) < DATE($2) THEN p.match_checksum END) as match_count_regular,
+                AVG(CASE WHEN DATE(d.date) < DATE($2) THEN p.hltv_rating_2 END) as avg_rating2_regular,
+                AVG(CASE WHEN DATE(d.date) < DATE($2) THEN p.average_damage_per_round END) as avg_adr_regular,
+                AVG(CASE WHEN DATE(d.date) < DATE($2) THEN p.headshot_percentage END) as avg_headshot_pct_regular,
+                CASE 
+                    WHEN SUM(CASE WHEN DATE(d.date) < DATE($2) THEN p.death_count ELSE 0 END) > 0 
+                    THEN SUM(CASE WHEN DATE(d.date) < DATE($2) THEN p.kill_count ELSE 0 END)::NUMERIC / 
+                         SUM(CASE WHEN DATE(d.date) < DATE($2) THEN p.death_count ELSE 0 END)
+                    ELSE SUM(CASE WHEN DATE(d.date) < DATE($2) THEN p.kill_count ELSE 0 END)::NUMERIC
+                END as overall_kd_regular,
+                
+                -- Playoff Stats (from 2026-05-26 onwards)
+                COUNT(DISTINCT CASE WHEN DATE(d.date) >= DATE($2) THEN p.match_checksum END) as match_count_playoffs,
+                AVG(CASE WHEN DATE(d.date) >= DATE($2) THEN p.hltv_rating_2 END) as avg_rating2_playoffs,
+                AVG(CASE WHEN DATE(d.date) >= DATE($2) THEN p.average_damage_per_round END) as avg_adr_playoffs,
+                AVG(CASE WHEN DATE(d.date) >= DATE($2) THEN p.headshot_percentage END) as avg_headshot_pct_playoffs,
+                CASE 
+                    WHEN SUM(CASE WHEN DATE(d.date) >= DATE($2) THEN p.death_count ELSE 0 END) > 0 
+                    THEN SUM(CASE WHEN DATE(d.date) >= DATE($2) THEN p.kill_count ELSE 0 END)::NUMERIC / 
+                         SUM(CASE WHEN DATE(d.date) >= DATE($2) THEN p.death_count ELSE 0 END)
+                    ELSE SUM(CASE WHEN DATE(d.date) >= DATE($2) THEN p.kill_count ELSE 0 END)::NUMERIC
+                END as overall_kd_playoffs,
+                
+                -- Overall stats (for backwards compatibility)
+                COUNT(DISTINCT p.match_checksum) as match_count,
+                SUM(p.kill_count) as total_kills,
+                SUM(p.death_count) as total_deaths,
+                SUM(p.assist_count) as total_assists,
+                SUM(p.mvp_count) as total_mvps,
+                SUM(p.headshot_count) as total_headshots,
+                AVG(p.headshot_percentage) as avg_headshot_pct,
+                AVG(p.hltv_rating_2) as avg_rating2,
+                AVG(p.average_damage_per_round) as avg_adr,
+                AVG(p.kill_death_ratio) as avg_kd,
+                SUM(p.five_kill_count) as total_aces,
+                SUM(p.four_kill_count) as total_4k,
+                SUM(p.three_kill_count) as total_3k,
+                SUM(p.bomb_planted_count) as total_bomb_plants,
+                SUM(p.bomb_defused_count) as total_bomb_defuses,
+                AVG(p.kast) as avg_kast,
+                SUM(p.first_kill_count) as total_first_kills,
+                SUM(p.first_death_count) as total_first_deaths,
+                CASE 
+                    WHEN SUM(p.death_count) > 0 
+                    THEN SUM(p.kill_count)::NUMERIC / SUM(p.death_count)
+                    ELSE SUM(p.kill_count)::NUMERIC
+                END as overall_kd,
+                CASE 
+                    WHEN COUNT(DISTINCT p.match_checksum) > 0 
+                    THEN SUM(p.kill_count)::NUMERIC / COUNT(DISTINCT p.match_checksum)
+                    ELSE 0
+                END as avg_kills_per_match
+            FROM players p
+            JOIN matches m ON p.match_checksum = m.checksum
+            JOIN demos d ON p.match_checksum = d.checksum
+            WHERE p.steam_id = $1
+            GROUP BY p.steam_id, p.name
+        `;
+        
+        const result = await pgPool.query(query, [steamId, PLAYOFF_START_DATE]);
+        
+        if (result.rows.length === 0) {
+            console.warn(`[PostgreSQL] No stats found for Steam ID: ${steamId}`);
+            return null;
+        }
+        
+        const stats = result.rows[0];
+        
+        // Format the data with Regular Season / Playoffs split
+        return {
+            steamId: stats.steam_id,
+            playerName: stats.player_name,
+            
+            // Regular Season Stats
+            regular: {
+                matchCount: parseInt(stats.match_count_regular) || 0,
+                avgRating2: parseFloat(stats.avg_rating2_regular) || 0,
+                avgAdr: parseFloat(stats.avg_adr_regular) || 0,
+                avgHeadshotPct: parseFloat(stats.avg_headshot_pct_regular) || 0,
+                overallKd: parseFloat(stats.overall_kd_regular) || 0
+            },
+            
+            // Playoff Stats
+            playoffs: {
+                matchCount: parseInt(stats.match_count_playoffs) || 0,
+                avgRating2: parseFloat(stats.avg_rating2_playoffs) || 0,
+                avgAdr: parseFloat(stats.avg_adr_playoffs) || 0,
+                avgHeadshotPct: parseFloat(stats.avg_headshot_pct_playoffs) || 0,
+                overallKd: parseFloat(stats.overall_kd_playoffs) || 0
+            },
+            
+            // Overall stats (backwards compatibility)
+            matchCount: parseInt(stats.match_count) || 0,
+            totalKills: parseInt(stats.total_kills) || 0,
+            totalDeaths: parseInt(stats.total_deaths) || 0,
+            totalAssists: parseInt(stats.total_assists) || 0,
+            mvps: parseInt(stats.total_mvps) || 0,
+            totalHeadshots: parseInt(stats.total_headshots) || 0,
+            avgHeadshotPct: parseFloat(stats.avg_headshot_pct) || 0,
+            avgRating2: parseFloat(stats.avg_rating2) || 0,
+            avgAdr: parseFloat(stats.avg_adr) || 0,
+            avgKd: parseFloat(stats.avg_kd) || 0,
+            overallKd: parseFloat(stats.overall_kd) || 0,
+            avgKillsPerMatch: parseFloat(stats.avg_kills_per_match).toFixed(1),
+            totalAces: parseInt(stats.total_aces) || 0,
+            total4k: parseInt(stats.total_4k) || 0,
+            total3k: parseInt(stats.total_3k) || 0,
+            totalBombPlants: parseInt(stats.total_bomb_plants) || 0,
+            totalBombDefuses: parseInt(stats.total_bomb_defuses) || 0,
+            avgKast: parseFloat(stats.avg_kast) || 0,
+            totalFirstKills: parseInt(stats.total_first_kills) || 0,
+            totalFirstDeaths: parseInt(stats.total_first_deaths) || 0,
+            source: 'postgres',
+            cachedAt: new Date().toISOString()
+        };
+    } catch (error) {
+        console.error('[PostgreSQL] Error fetching player stats:', error.message);
+        return null;
+    }
+}
+
+/**
+ * Get team statistics from CS Demo Manager database
+ * Calculates team winrate based on recent matches
+ */
+async function getTeamStatsFromPostgres(steamIds, limit = 100) {
+    if (!pgPool || steamIds.length === 0) {
+        return null;
+    }
+    
+    try {
+        // Season dates from environment variables
+        const SEASON_START_DATE = process.env.SEASON_START_DATE || '2026-04-06';
+        const PLAYOFF_START_DATE = process.env.PLAYOFF_START_DATE || '2026-05-26';
+        
+        // Query to get team match results (using demos.date for match date)
+        const query = `
+            SELECT 
+                m.checksum,
+                m.winner_name,
+                d.date as match_date,
+                p.team_name,
+                COUNT(DISTINCT p.steam_id) as our_players
+            FROM matches m
+            JOIN demos d ON m.checksum = d.checksum
+            JOIN players p ON p.match_checksum = m.checksum
+            WHERE p.steam_id = ANY($1)
+            GROUP BY m.checksum, m.winner_name, d.date, p.team_name
+            HAVING COUNT(DISTINCT p.steam_id) >= 3
+            ORDER BY d.date DESC
+            LIMIT $2
+        `;
+        
+        const result = await pgPool.query(query, [steamIds, limit]);
+        
+        if (result.rows.length === 0) {
+            return { 
+                regular: { winrate: 0, wins: 0, losses: 0, totalMatches: 0 },
+                playoffs: { winrate: 0, wins: 0, losses: 0, totalMatches: 0 },
+                winrate: 0, wins: 0, losses: 0, totalMatches: 0 
+            };
+        }
+        
+        // Calculate wins/losses for Regular Season and Playoffs
+        let winsRegular = 0, lossesRegular = 0;
+        let winsPlayoffs = 0, lossesPlayoffs = 0;
+        let wins = 0, losses = 0;
+        
+        for (const match of result.rows) {
+            const isWin = match.winner_name === match.team_name;
+            const matchDate = new Date(match.match_date).toISOString().split('T')[0];
+            const isPlayoff = matchDate >= PLAYOFF_START_DATE;
+            
+            if (isWin) {
+                wins++;
+                if (isPlayoff) winsPlayoffs++;
+                else winsRegular++;
+            } else {
+                losses++;
+                if (isPlayoff) lossesPlayoffs++;
+                else lossesRegular++;
+            }
+        }
+        
+        const totalMatches = wins + losses;
+        const winrate = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
+        
+        const totalMatchesRegular = winsRegular + lossesRegular;
+        const winrateRegular = totalMatchesRegular > 0 ? Math.round((winsRegular / totalMatchesRegular) * 100) : 0;
+        
+        const totalMatchesPlayoffs = winsPlayoffs + lossesPlayoffs;
+        const winratePlayoffs = totalMatchesPlayoffs > 0 ? Math.round((winsPlayoffs / totalMatchesPlayoffs) * 100) : 0;
+        
+        return {
+            regular: {
+                winrate: winrateRegular,
+                wins: winsRegular,
+                losses: lossesRegular,
+                totalMatches: totalMatchesRegular
+            },
+            playoffs: {
+                winrate: winratePlayoffs,
+                wins: winsPlayoffs,
+                losses: lossesPlayoffs,
+                totalMatches: totalMatchesPlayoffs
+            },
+            // Overall (backwards compatibility)
+            winrate,
+            wins,
+            losses,
+            totalMatches
+        };
+    } catch (error) {
+        console.error('[PostgreSQL] Error fetching team stats:', error.message);
+        return null;
+    }
+}
+
+// ========== END POSTGRESQL STATS FUNCTIONS ==========
 
 // Function to automatically scan all videos
 function getVideoFiles() {
@@ -126,216 +410,98 @@ function getPartnerFiles() {
 
 // ========== PLAYER STATS CALCULATION ==========
 
-// Fetch player data from FACEIT API
-async function fetchPlayerData(playerId) {
-    const headers = {
-        'Authorization': `Bearer ${FACEIT_API_KEY}`,
-        'Accept': 'application/json'
-    };
-
-    try {
-        // Try fetching player profile - first try as-is, then try with ?nickname= parameter
-        let playerResponse = await fetch(`https://open.faceit.com/data/v4/players?nickname=${playerId}`, { headers });
-        if (!playerResponse.ok) {
-            // If nickname search fails, try direct ID
-            playerResponse = await fetch(`https://open.faceit.com/data/v4/players/${playerId}`, { headers });
-            if (!playerResponse.ok) throw new Error(`Player not found: ${playerId}`);
-        }
-        const playerData = await playerResponse.json();
-
-        // Fetch match history (last 100 matches) - use the player_id from the response
-        const actualPlayerId = playerData.player_id;
-        const historyResponse = await fetch(`https://open.faceit.com/data/v4/players/${actualPlayerId}/history?game=cs2&limit=100`, { headers });
-        if (!historyResponse.ok) throw new Error(`History not found for: ${playerId}`);
-        const historyData = await historyResponse.json();
-
-        return {
-            player: playerData,
-            matches: historyData.items || []
-        };
-    } catch (error) {
-        console.error(`[Stats] Error fetching player data for ${playerId}:`, error.message);
+/**
+ * Calculate player statistics from PostgreSQL database
+ * @param {string} playerId - Player ID (e.g., 'Aindrew')
+ * @returns {Promise<Object|null>} Player statistics or null if not found
+ */
+async function calculatePlayerStats(playerId) {
+    // Find player with Steam ID
+    const playerConfig = TRACKED_PLAYERS.find(p => p.id === playerId);
+    
+    if (!playerConfig) {
+        console.error(`[Stats] Player not found in TRACKED_PLAYERS: ${playerId}`);
         return null;
     }
-}
-
-// Calculate player statistics from league matches only
-async function calculatePlayerStats(playerId) {
-    const data = await fetchPlayerData(playerId);
-    if (!data) return null;
-
-    const { player, matches } = data;
-    const actualPlayerId = player.player_id; // Use the real player_id from the API
     
-    // Use player's matches and filter for current season (S57 EU Open10 D)
-    // Includes Regular Season, Playoffs, and all other stages
-    const leagueMatches = matches.filter(match => {
-        const compName = (match.competition_name || '').toLowerCase();
-        
-        // Filter for current season: includes all stages (Regular Season, Playoffs, etc.)
-        const isCurrentSeason = compName.includes(CURRENT_SEASON) && 
-                               compName.includes('eu') && 
-                               compName.includes('open10') && 
-                               compName.includes('d');
-        
-        return isCurrentSeason;
-    });
-    
-    const seasonMatches = leagueMatches;
-
-    // Calculate statistics
-    let playerTotalKills = 0;
-    let playerTotalDeaths = 0;
-    let teamTotalKills = 0;
-    let teamTotalDeaths = 0;
-    let teamWins = 0;
-    let teamMatchesCount = 0;
-    let playerMvps = 0;
-    let playerValidMatches = 0;
-    
-    // Track unique matches to count team wins/losses correctly
-    const processedMatches = new Set();
-    
-    for (let i = 0; i < seasonMatches.length; i++) {
-        const match = seasonMatches[i];
-        
-        // Get detailed match stats
-        try {
-            const headers = {
-                'Authorization': `Bearer ${FACEIT_API_KEY}`,
-                'Accept': 'application/json'
-            };
-            
-            const statsResponse = await fetch(`https://open.faceit.com/data/v4/matches/${match.match_id}/stats`, { headers });
-            if (!statsResponse.ok) {
-                continue;
-            }
-            
-            const matchStats = await statsResponse.json();
-            
-            // Find player stats and team stats in the match
-            let playerStats = null;
-            let matchMvpPlayerId = null;
-            let maxMvpCount = 0;
-            let ourTeamRoster = [];
-            let playerTeamIndex = -1; // Which team is our player on
-            let winningTeamIndex = -1; // Which team won
-            
-            // Determine which team won based on score
-            if (matchStats.rounds && matchStats.rounds.length > 0) {
-                const round = matchStats.rounds[0];
-                if (round.teams && round.teams.length >= 2) {
-                    const team1Score = parseInt(round.teams[0].team_stats?.['Team Win'] || round.teams[0].team_stats?.['Final Score'] || 0);
-                    const team2Score = parseInt(round.teams[1].team_stats?.['Team Win'] || round.teams[1].team_stats?.['Final Score'] || 0);
-                    
-                    if (team1Score > team2Score) {
-                        winningTeamIndex = 0;
-                    } else if (team2Score > team1Score) {
-                        winningTeamIndex = 1;
-                    }
-                }
-            }
-            
-            // Find which team our player is on
-            if (matchStats.rounds && matchStats.rounds.length > 0) {
-                for (let teamIdx = 0; teamIdx < matchStats.rounds[0].teams.length; teamIdx++) {
-                    const team = matchStats.rounds[0].teams[teamIdx];
-                    if (team.players.some(p => p.player_id === actualPlayerId || p.nickname === playerId)) {
-                        playerTeamIndex = teamIdx;
-                        break;
-                    }
-                }
-            }
-            
-            // Count team wins/losses only once per match
-            if (playerTeamIndex !== -1 && !processedMatches.has(match.match_id)) {
-                processedMatches.add(match.match_id);
-                teamMatchesCount++;
-                
-                // Check if player's team won
-                if (playerTeamIndex === winningTeamIndex) {
-                    teamWins++;
-                }
-            }
-            
-            for (const round of matchStats.rounds) {
-                for (let teamIdx = 0; teamIdx < round.teams.length; teamIdx++) {
-                    const team = round.teams[teamIdx];
-                    const isOurTeam = teamIdx === playerTeamIndex;
-                    
-                    for (const p of team.players) {
-                        const mvpCount = parseInt(p.player_stats.MVPs || p.player_stats.mvps || 0);
-                        
-                        // Find MVP of the match (player with most MVPs)
-                        if (mvpCount > maxMvpCount) {
-                            maxMvpCount = mvpCount;
-                            matchMvpPlayerId = p.player_id;
-                        }
-                        
-                        // Find our player's stats
-                        if (p.player_id === actualPlayerId || p.nickname === playerId) {
-                            playerStats = p.player_stats;
-                        }
-                        
-                        // Collect our team's players for team K/D
-                        if (isOurTeam && !ourTeamRoster.some(player => player.player_id === p.player_id)) {
-                            ourTeamRoster.push(p);
-                        }
-                    }
-                }
-            }
-
-            // Calculate team K/D for this match
-            if (ourTeamRoster.length > 0) {
-                let matchTeamKills = 0;
-                let matchTeamDeaths = 0;
-                
-                for (const p of ourTeamRoster) {
-                    matchTeamKills += parseInt(p.player_stats.Kills || p.player_stats.kills || 0);
-                    matchTeamDeaths += parseInt(p.player_stats.Deaths || p.player_stats.deaths || 0);
-                }
-                
-                teamTotalKills += matchTeamKills;
-                teamTotalDeaths += matchTeamDeaths;
-            }
-
-            if (playerStats) {
-                const kills = parseInt(playerStats.Kills || playerStats.kills || 0);
-                const deaths = parseInt(playerStats.Deaths || playerStats.deaths || 0);
-
-                playerTotalKills += kills;
-                playerTotalDeaths += deaths;
-                playerValidMatches++;
-                
-                // Check if this player was the match MVP
-                if (matchMvpPlayerId === actualPlayerId) {
-                    playerMvps++;
-                }
-            }
-        } catch (error) {
-            // Silent fail for individual match stats
-        }
+    if (!playerConfig.steamId || playerConfig.steamId === 'STEAM_ID_HERE') {
+        console.error(`[Stats] Steam ID not configured for player: ${playerId}`);
+        console.error(`[Stats] Please add the Steam ID in server.js TRACKED_PLAYERS array`);
+        return null;
     }
-
-    const teamLosses = teamMatchesCount - teamWins;
-    const teamWinrate = teamMatchesCount > 0 ? Math.round((teamWins / teamMatchesCount) * 100) : 0;
-
-    // Calculate averages (all from league matches only)
-    const avgKills = playerValidMatches > 0 && playerTotalKills > 0 ? (playerTotalKills / playerValidMatches).toFixed(1) : 'N/A';
-    const teamKd = teamTotalDeaths > 0 ? (teamTotalKills / teamTotalDeaths).toFixed(2) : 'N/A';
-
+    
+    if (!pgPool) {
+        console.error(`[Stats] PostgreSQL connection not available`);
+        return null;
+    }
+    
+    // Get player stats from PostgreSQL
+    const pgStats = await getPlayerStatsFromPostgres(playerConfig.steamId);
+    
+    if (!pgStats) {
+        console.error(`[Stats] No PostgreSQL stats found for ${playerId}`);
+        return null;
+    }
+    
+    // Get team stats (winrate) from PostgreSQL
+    const allSteamIds = TRACKED_PLAYERS
+        .filter(p => p.steamId && p.steamId !== 'STEAM_ID_HERE')
+        .map(p => p.steamId);
+    
+    const teamStats = await getTeamStatsFromPostgres(allSteamIds);
+    
+    // Combine player and team stats with Regular Season / Playoffs split
     return {
-        player: player,
-        mvps: playerMvps || 0,
-        avgKills: avgKills,
-        winrate: teamWinrate, // Team winrate (league matches only)
-        kd: teamKd, // Team K/D (league matches only)
-        validMatches: playerValidMatches,
-        teamMatchesCount: teamMatchesCount,
-        teamWins: teamWins,
-        cachedAt: new Date().toISOString()
+        player: {
+            player_id: playerId,
+            nickname: playerConfig.name,
+            avatar: '', // Not available in PostgreSQL
+        },
+        // Regular Season / Playoffs Split
+        regular: {
+            matchCount: pgStats.regular.matchCount,
+            avgRating2: parseFloat(pgStats.regular.avgRating2.toFixed(2)),
+            avgAdr: parseFloat(pgStats.regular.avgAdr.toFixed(1)),
+            avgHeadshotPct: parseFloat(pgStats.regular.avgHeadshotPct.toFixed(1)),
+            overallKd: parseFloat(pgStats.regular.overallKd.toFixed(2)),
+            winrate: teamStats && teamStats.regular ? teamStats.regular.winrate : 0,
+            teamWins: teamStats && teamStats.regular ? teamStats.regular.wins : 0,
+            teamMatchesCount: teamStats && teamStats.regular ? teamStats.regular.totalMatches : 0
+        },
+        playoffs: {
+            matchCount: pgStats.playoffs.matchCount,
+            avgRating2: parseFloat(pgStats.playoffs.avgRating2.toFixed(2)),
+            avgAdr: parseFloat(pgStats.playoffs.avgAdr.toFixed(1)),
+            avgHeadshotPct: parseFloat(pgStats.playoffs.avgHeadshotPct.toFixed(1)),
+            overallKd: parseFloat(pgStats.playoffs.overallKd.toFixed(2)),
+            winrate: teamStats && teamStats.playoffs ? teamStats.playoffs.winrate : 0,
+            teamWins: teamStats && teamStats.playoffs ? teamStats.playoffs.wins : 0,
+            teamMatchesCount: teamStats && teamStats.playoffs ? teamStats.playoffs.totalMatches : 0
+        },
+        // Overall stats (backwards compatibility)
+        mvps: pgStats.mvps,
+        avgKills: pgStats.avgKillsPerMatch,
+        winrate: teamStats ? teamStats.winrate : 0,
+        kd: pgStats.overallKd.toFixed(2),
+        validMatches: pgStats.matchCount,
+        teamMatchesCount: teamStats ? teamStats.totalMatches : 0,
+        teamWins: teamStats ? teamStats.wins : 0,
+        // Additional PostgreSQL-only stats
+        totalAces: pgStats.totalAces,
+        total4k: pgStats.total4k,
+        total3k: pgStats.total3k,
+        avgRating2: pgStats.avgRating2.toFixed(2),
+        avgAdr: pgStats.avgAdr.toFixed(1),
+        avgHeadshotPct: pgStats.avgHeadshotPct.toFixed(1),
+        totalBombPlants: pgStats.totalBombPlants,
+        totalBombDefuses: pgStats.totalBombDefuses,
+        avgKast: pgStats.avgKast.toFixed(1),
+        source: 'postgres',
+        cachedAt: pgStats.cachedAt
     };
 }
+
+// ========== END PLAYER STATS CALCULATION ==========
 
 // Update stats cache for a specific player
 async function updatePlayerStatsCache(playerId) {
@@ -499,7 +665,6 @@ function cleanupOldMatches() {
             delete techDifficulties[matchId];
             delete matchTimestamps[matchId];
             deletedCount++;
-            console.log(`[Cleanup] Deleted old match data for: ${matchId} (age: ${Math.round(age / 3600000)}h)`);
         }
     }
     
@@ -615,7 +780,6 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
     // Check cache first
     const cached = pastMatchesCache.get(teamId);
     if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
-        console.log(`[API] Returning cached past matches for team ${teamId}`);
         return res.json(cached.data);
     }
     
@@ -623,8 +787,6 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
     const LEAGUE_FILTER = ['s57', 'open10', 'esea', 'regular season', 'playoffs', 'kleverr'];
     
     try {
-        console.log(`[API] Fetching fresh past matches for team ${teamId}`);
-        
         // Use a reference player from the team to get match history
         const referencePlayer = 'cLn395'; // You can make this configurable
         
@@ -668,7 +830,6 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
             
             // Skip non-league matches (like "Europe 5v5 Queue")
             if (!isLeagueMatch) {
-                console.log(`[API] Skipping non-league match: ${match.competition_name}`);
                 continue;
             }
             
@@ -814,17 +975,6 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
             }
         }
         
-        console.log(`[API] Collected ${matches.length} raw league matches before grouping`);
-        
-        // Debug: Log first few matches to see data
-        if (matches.length > 0) {
-            console.log(`[API] Sample matches for grouping:`);
-            matches.slice(0, 5).forEach((m, idx) => {
-                const date = new Date(m.started_at * 1000).toDateString();
-                console.log(`  ${idx}: ${m.ourTeam} vs ${m.enemyTeam} on ${date} - ${m.competition_name}`);
-            });
-        }
-        
         // Group BO3 matches (matches against same opponent on same day)
         const groupedMatches = [];
         const processedMatchIds = new Set();
@@ -848,7 +998,6 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
                     !processedMatchIds.has(otherMatch.match_id)) {
                     relatedMatches.push(otherMatch);
                     processedMatchIds.add(otherMatch.match_id);
-                    console.log(`[API] Grouped match ${otherMatch.match_id} with ${currentMatch.match_id} (same opponent: ${currentMatch.enemyTeam}, same date: ${matchDate})`);
                 }
             }
             
@@ -858,8 +1007,6 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
                 const ourWins = relatedMatches.filter(m => m.isWin).length;
                 const enemyWins = relatedMatches.length - ourWins;
                 const actualBestOf = relatedMatches[0].bestOf || relatedMatches.length;
-                
-                console.log(`[API] Created BO${actualBestOf} series: ${currentMatch.ourTeam} vs ${currentMatch.enemyTeam} (${ourWins}-${enemyWins}, ${relatedMatches.length} maps played)`);
                 
                 groupedMatches.push({
                     match_id: currentMatch.match_id,
@@ -896,8 +1043,6 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
                     // Determine which faction is "our team" based on the first map we know
                     const ourTeamIsFaction1 = currentMatch.isWin === (currentMatch.detailedMapResults[0].winner === 'faction1');
                     
-                    console.log(`[API] Found ${currentMatch.detailedMapResults.length} detailed map results for ${currentMatch.ourTeam} vs ${currentMatch.enemyTeam}`);
-                    
                     // Fetch stats again to get all rounds with half scores
                     let allRounds = null;
                     try {
@@ -905,7 +1050,6 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
                         if (statsResponse.ok) {
                             const statsData = await statsResponse.json();
                             allRounds = statsData.rounds || [];
-                            console.log(`[API] Fetched ${allRounds.length} rounds with half scores`);
                         }
                     } catch (err) {
                         console.warn(`[API] Could not fetch rounds for half scores: ${err.message}`);
@@ -954,8 +1098,6 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
                             secondHalf: secondHalf
                         });
                     });
-                    
-                    console.log(`[API] Reconstructed ${mapsArray.length} maps for BO${currentMatch.bestOf} series with half scores`);
                 } else {
                     // Fallback: only have one map in history
                     mapsArray.push({
@@ -967,8 +1109,6 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
                         secondHalf: currentMatch.secondHalf
                     });
                 }
-                
-                console.log(`[API] Single match marked as BO${currentMatch.bestOf}: ${currentMatch.ourTeam} vs ${currentMatch.enemyTeam} (${ourScore}-${enemyScore} series${currentMatch.seriesScore ? ' from FACEIT' : ''}, ${mapsArray.length} maps available)`);
                 
                 groupedMatches.push({
                     match_id: currentMatch.match_id,
@@ -996,12 +1136,8 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
             }
         }
         
-        console.log(`[API] Grouped ${matches.length} raw matches into ${groupedMatches.length} entries (series + singles)`);
-        
         // Take only the requested limit after grouping
         const finalMatches = groupedMatches.slice(0, limit);
-        
-        console.log(`[API] Returning ${finalMatches.length} matches after limit of ${limit}`);
         
         const response = {
             success: true,
@@ -1037,13 +1173,10 @@ app.get('/api/upcoming-matches/:championshipId', async (req, res) => {
     const cacheKey = `upcoming_${championshipId}${teamId ? `_${teamId}` : ''}`;
     const cached = pastMatchesCache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
-        console.log(`[API] Returning cached upcoming matches for championship ${championshipId}${teamId ? ` (team: ${teamId})` : ''}`);
         return res.json(cached.data);
     }
     
     try {
-        console.log(`[API] Fetching fresh upcoming matches for championship ${championshipId}${teamId ? ` (filtering for team: ${teamId})` : ''}`);
-        
         const headers = {
             'Authorization': `Bearer ${FACEIT_API_KEY}`,
             'Accept': 'application/json'
@@ -1499,8 +1632,17 @@ app.get('/', (req, res) => {
 async function startServer() {
     console.log('[Server] Starting...');
     
+    // Add error handler for unhandled errors
+    process.on('uncaughtException', (error) => {
+        console.error('[Server] Uncaught Exception:', error);
+    });
+    
+    process.on('unhandledRejection', (reason, promise) => {
+        console.error('[Server] Unhandled Rejection at:', promise, 'reason:', reason);
+    });
+    
     // Start HTTP server immediately
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
         console.log(`[Server] Running on http://localhost:${PORT}`);
         console.log(`[Server] Admin Interface: http://localhost:${PORT}/admin`);
         console.log(`[Server] Viewer Example: http://localhost:${PORT}/1-3f08de52-b37e-462f-8d19-23ad0b6b7ab6`);
@@ -1509,6 +1651,10 @@ async function startServer() {
         const videoCount = getVideoFiles().length;
         const videoSource = useProcessedVideos ? 'compressed (processed/)' : 'original (videos/)';
         console.log(`[Server] Serving ${videoCount} ${videoSource} video(s)`);
+    });
+    
+    server.on('error', (error) => {
+        console.error('[Server] Server error:', error);
     });
     
     // Compress videos in background (only new/changed videos)
