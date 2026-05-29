@@ -93,22 +93,6 @@ async function loadPartnerLogos() {
     }
 }
 
-// Map name to image file
-function getMapImage(mapName) {
-    const cleanName = mapName.toLowerCase().replace('de_', '');
-    const mapImages = {
-        'ancient': 'CS2_de_ancient.png',
-        'anubis': 'CS2_de_anubis.png',
-        'inferno': 'CS2_de_inferno.png',
-        'mirage': 'CS2_de_mirage.png',
-        'nuke': 'CS2_de_nuke.png',
-        'overpass': 'CS2_de_overpass.png',
-        'dust2': 'CS2_Dust_2_A_Site.jpg',
-        'dust 2': 'CS2_Dust_2_A_Site.jpg'
-    };
-    return mapImages[cleanName] || 'CS2_de_mirage.png'; // Fallback to mirage
-}
-
 // Fetch Upcoming Matches
 async function fetchUpcomingMatches() {
     try {

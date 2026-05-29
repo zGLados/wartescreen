@@ -85,7 +85,6 @@
         const mapGrid = document.getElementById('mapGrid');
         const overrideIndicator = document.getElementById('timer-override-indicator');
         let currentVideoIndex = 0;
-        let youtubePlayer = null;
         let isLoadingVideo = false;
 
         function startTimer(duration = 180) {

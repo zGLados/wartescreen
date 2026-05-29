@@ -35,27 +35,6 @@
     text-shadow: 0 0 20px rgba(46, 204, 113, 0.5);
 }
 
-.team-info-header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 15px;
-}
-
-.team-logo-main {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    border: 2px solid var(--pick-green);
-    box-shadow: 0 0 15px rgba(46, 204, 113, 0.3);
-}
-
-.team-name {
-    font-size: 1.8rem;
-    font-weight: 600;
-    color: var(--text-color);
-}
-
 /* Matches Grid - Vertical List */
 .matches-grid {
     display: flex;
@@ -175,43 +154,6 @@
     font-weight: 700;
     color: rgba(255, 255, 255, 0.4);
     padding: 0 20px;
-}
-
-/* Map Info with Image */
-.map-info {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    overflow: hidden;
-    border-radius: 8px;
-}
-
-.map-image {
-    width: 100%;
-    height: 60px;
-    object-fit: cover;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s ease;
-}
-
-.map-image:hover {
-    transform: scale(1.05);
-}
-
-.map-placeholder {
-    width: 100%;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 8px;
-    font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.6);
-    text-transform: uppercase;
-    font-weight: 600;
 }
 
 /* Match Format */

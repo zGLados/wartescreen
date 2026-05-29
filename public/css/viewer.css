@@ -41,27 +41,6 @@ body {
     opacity: 0.3;
 }
 
-#bg-video-youtube {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    min-width: 100%;
-    min-height: 100%;
-}
-
-#bg-video-youtube iframe {
-    width: 100vw;
-    height: 56.25vw;
-    min-height: 100vh;
-    min-width: 177.77vh;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-}
-
 .header {
     text-align: center;
     margin-bottom: 30px;

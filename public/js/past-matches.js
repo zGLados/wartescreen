@@ -1,6 +1,5 @@
 // Configuration
 const TEAM_ID = '905ca82f-1391-4a44-9840-601455a6b75e'; // TacAM Team ID
-const REFERENCE_PLAYER = 'cLn395'; // Reference player to get match history
 const MATCHES_LIMIT = 5; // Number of matches to display
 
 // Video Management

@@ -203,35 +203,6 @@ async function fetchPlayerData(playerId) {
     }
 }
 
-// Fetch team match history from FACEIT API
-async function fetchTeamMatches() {
-    const headers = {
-        'Authorization': `Bearer ${FACEIT_API_KEY}`,
-        'Accept': 'application/json'
-    };
-
-    try {
-        // Fetch team's match history - use stats endpoint
-        const response = await fetch(`https://open.faceit.com/data/v4/teams/${TEAM_ID}/stats/cs2`, { headers });
-        if (!response.ok) throw new Error('Failed to fetch team stats');
-        const statsData = await response.json();
-        
-        // Now fetch match history
-        const matchResponse = await fetch(`https://open.faceit.com/data/v4/teams/${TEAM_ID}/matches?type=past&offset=0&limit=100`, { headers });
-        if (!matchResponse.ok) {
-            console.error('Failed to fetch team match history');
-            return [];
-        }
-        const matchData = await matchResponse.json();
-        
-        console.log('Team matches fetched:', matchData.items?.length || 0);
-        return matchData.items || [];
-    } catch (error) {
-        console.error('Error fetching team matches:', error);
-        return [];
-    }
-}
-
 // Calculate player statistics from league matches only
 async function calculateStats(playerId) {
     const data = await fetchPlayerData(playerId);

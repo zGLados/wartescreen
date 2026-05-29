@@ -24,27 +24,6 @@
     text-shadow: 0 0 20px rgba(195, 55, 55, 0.5);
 }
 
-.team-info-header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 15px;
-}
-
-.team-logo-main {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    border: 2px solid var(--accent-red);
-    box-shadow: 0 0 15px rgba(195, 55, 55, 0.3);
-}
-
-.team-name {
-    font-size: 1.8rem;
-    font-weight: 600;
-    color: var(--text-color);
-}
-
 /* Matches Grid - Vertical List */
 .matches-grid {
     display: flex;
@@ -324,14 +303,6 @@
     min-width: 250px;
 }
 
-.series-note {
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.5);
-    font-style: italic;
-    text-align: center;
-    margin-top: 5px;
-}
-
 .series-map {
     display: grid;
     grid-template-columns: 1fr 60px 120px;
@@ -378,11 +349,6 @@
 
 .series-map.map-loss .map-score {
     color: rgba(255, 255, 255, 0.6);
-}
-
-.series-map.map-picked .map-score {
-    color: rgba(255, 255, 255, 0.3);
-    font-size: 1.5rem;
 }
 
 .series-map .half-scores-inline {
