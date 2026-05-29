@@ -1031,26 +1031,30 @@ app.get('/api/past-matches/:teamId', async (req, res) => {
 app.get('/api/upcoming-matches/:championshipId', async (req, res) => {
     const { championshipId } = req.params;
     const limit = parseInt(req.query.limit) || 5;
+    const teamId = req.query.teamId; // Optional team filter
     
     // Check cache first
-    const cacheKey = `upcoming_${championshipId}`;
+    const cacheKey = `upcoming_${championshipId}${teamId ? `_${teamId}` : ''}`;
     const cached = pastMatchesCache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
-        console.log(`[API] Returning cached upcoming matches for championship ${championshipId}`);
+        console.log(`[API] Returning cached upcoming matches for championship ${championshipId}${teamId ? ` (team: ${teamId})` : ''}`);
         return res.json(cached.data);
     }
     
     try {
-        console.log(`[API] Fetching fresh upcoming matches for championship ${championshipId}`);
+        console.log(`[API] Fetching fresh upcoming matches for championship ${championshipId}${teamId ? ` (filtering for team: ${teamId})` : ''}`);
         
         const headers = {
             'Authorization': `Bearer ${FACEIT_API_KEY}`,
             'Accept': 'application/json'
         };
         
+        // Fetch more matches if filtering by team to ensure we get enough results
+        const fetchLimit = teamId ? limit * 10 : limit * 2;
+        
         // Fetch upcoming matches from championship
         const matchesResponse = await fetch(
-            `https://open.faceit.com/data/v4/championships/${championshipId}/matches?type=upcoming&offset=0&limit=${limit * 2}`,
+            `https://open.faceit.com/data/v4/championships/${championshipId}/matches?type=upcoming&offset=0&limit=${fetchLimit}`,
             { headers }
         );
         
@@ -1080,7 +1084,18 @@ app.get('/api/upcoming-matches/:championshipId', async (req, res) => {
         const matches = matchesData.items
             .filter(match => {
                 // Only include matches with both teams assigned
-                return match.teams && match.teams.faction1 && match.teams.faction2;
+                if (!match.teams || !match.teams.faction1 || !match.teams.faction2) {
+                    return false;
+                }
+                
+                // If teamId is specified, filter for that team
+                if (teamId) {
+                    const faction1Id = match.teams.faction1.faction_id;
+                    const faction2Id = match.teams.faction2.faction_id;
+                    return faction1Id === teamId || faction2Id === teamId;
+                }
+                
+                return true;
             })
             .slice(0, limit)
             .map(match => ({
@@ -1088,14 +1103,17 @@ app.get('/api/upcoming-matches/:championshipId', async (req, res) => {
                 competition_name: match.competition_name,
                 scheduled_at: match.scheduled_at,
                 status: match.status,
+                best_of: match.best_of || 1,
                 teams: {
                     faction1: {
                         name: match.teams.faction1.name || match.teams.faction1.nickname || 'Team 1',
-                        faction_id: match.teams.faction1.faction_id
+                        faction_id: match.teams.faction1.faction_id,
+                        avatar: match.teams.faction1.avatar || null
                     },
                     faction2: {
                         name: match.teams.faction2.name || match.teams.faction2.nickname || 'Team 2',
-                        faction_id: match.teams.faction2.faction_id
+                        faction_id: match.teams.faction2.faction_id,
+                        avatar: match.teams.faction2.avatar || null
                     }
                 },
                 voting: match.voting || {}

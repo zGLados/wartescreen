@@ -1,5 +1,5 @@
 // Configuration
-const CHAMPIONSHIP_ID = 'a4ec16e0-348c-455c-aaf3-96711737c397'; // ESEA League S57
+const CHAMPIONSHIP_ID = '97b3e9f0-4039-4064-a4a9-e00c6a8f4666'; // ESEA League S57 EU Open10 D
 const TEAM_ID = '905ca82f-1391-4a44-9840-601455a6b75e'; // TacAM Team ID
 const MATCHES_LIMIT = 5; // Number of matches to display
 
@@ -112,7 +112,7 @@ function getMapImage(mapName) {
 // Fetch Upcoming Matches
 async function fetchUpcomingMatches() {
     try {
-        const response = await fetch(`/api/upcoming-matches/${CHAMPIONSHIP_ID}?limit=${MATCHES_LIMIT}`);
+        const response = await fetch(`/api/upcoming-matches/${CHAMPIONSHIP_ID}?limit=${MATCHES_LIMIT}&teamId=${TEAM_ID}`);
         
         if (!response.ok) {
             throw new Error(`Failed to fetch matches: ${response.statusText}`);
@@ -140,6 +140,57 @@ function displayMatches(matches) {
         const card = createMatchCard(match, index);
         grid.appendChild(card);
     });
+    
+    // Start countdown timer for first match
+    if (matches.length > 0) {
+        startCountdownTimer(matches[0]);
+    }
+}
+
+// Format countdown time
+function formatCountdown(timeUntil) {
+    if (timeUntil <= 0) return 'Starting...';
+    
+    const days = Math.floor(timeUntil / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((timeUntil % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((timeUntil % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((timeUntil % (1000 * 60)) / 1000);
+    
+    if (days > 0) {
+        return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+    } else if (hours > 0) {
+        return `${hours}h ${minutes}m ${seconds}s`;
+    } else if (minutes > 0) {
+        return `${minutes}m ${seconds}s`;
+    } else {
+        return `${seconds}s`;
+    }
+}
+
+// Start countdown timer for next match
+function startCountdownTimer(match) {
+    const statusElement = document.querySelector('.match-card:first-child .status-value');
+    if (!statusElement) return;
+    
+    const matchDate = new Date(match.scheduled_at * 1000);
+    
+    // Update every second
+    const updateTimer = () => {
+        const now = Date.now();
+        const timeUntil = matchDate - now;
+        statusElement.textContent = formatCountdown(timeUntil);
+        
+        // Stop timer if match has started
+        if (timeUntil <= 0) {
+            clearInterval(timerInterval);
+        }
+    };
+    
+    // Initial update
+    updateTimer();
+    
+    // Update every second
+    const timerInterval = setInterval(updateTimer, 1000);
 }
 
 // Create Match Card
@@ -160,13 +211,15 @@ function createMatchCard(match, index) {
         hour12: false
     });
     
-    // Get team names
+    // Get team names and logos
     const team1 = match.teams.faction1?.name || 'TBD';
+    const team1Logo = match.teams.faction1?.avatar || '/logo_T_default.png';
     const team2 = match.teams.faction2?.name || 'TBD';
+    const team2Logo = match.teams.faction2?.avatar || '/logo_T_default.png';
     
-    // Get map (if available)
-    const mapName = match.voting?.map?.pick?.[0] || 'TBD';
-    const cleanMapName = mapName !== 'TBD' ? mapName.replace('de_', '').toUpperCase() : 'TBD';
+    // Get match format
+    const bestOf = match.best_of || 1;
+    const formatText = `BO${bestOf}`;
     
     // Calculate time until match
     const now = Date.now();
@@ -194,25 +247,24 @@ function createMatchCard(match, index) {
         
         <div class="match-teams">
             <div class="team-box">
+                <img src="${team1Logo}" alt="${team1}" class="team-logo-upcoming" onerror="if(this.src !== window.location.origin + '/logo_T_default.png') this.src = '/logo_T_default.png';">
                 <div class="team-name-upcoming">${team1}</div>
             </div>
             
             <div class="vs-divider">VS</div>
             
             <div class="team-box">
+                <img src="${team2Logo}" alt="${team2}" class="team-logo-upcoming" onerror="if(this.src !== window.location.origin + '/logo_T_default.png') this.src = '/logo_T_default.png';">
                 <div class="team-name-upcoming">${team2}</div>
             </div>
         </div>
         
-        <div class="map-info">
-            ${cleanMapName !== 'TBD' 
-                ? `<img src="/maps/${getMapImage(cleanMapName)}" alt="${cleanMapName}" class="map-image" onerror="this.parentElement.innerHTML='<div class=\\'map-placeholder\\'>${cleanMapName}</div>'">` 
-                : `<div class="map-placeholder">Map TBD</div>`
-            }
+        <div class="match-format">
+            <div class="format-label">Format</div>
+            <div class="format-value">${formatText}</div>
         </div>
         
         <div class="match-status">
-            <div class="status-label">Starts</div>
             <div class="status-value">${statusText}</div>
         </div>
     `;

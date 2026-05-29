@@ -145,6 +145,20 @@
     min-width: 120px;
 }
 
+.team-logo-upcoming {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease;
+}
+
+.team-logo-upcoming:hover {
+    transform: scale(1.1);
+}
+
 .team-name-upcoming {
     font-size: 1.1rem;
     font-weight: 600;
@@ -200,19 +214,35 @@
     font-weight: 600;
 }
 
+/* Match Format */
+.match-format {
+    text-align: center;
+    padding: 10px 15px;
+    background: rgba(46, 204, 113, 0.15);
+    border: 2px solid var(--pick-green);
+    border-radius: 8px;
+}
+
+.format-label {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+
+.format-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--pick-green);
+    letter-spacing: 1px;
+}
+
 /* Match Status */
 .match-status {
     text-align: center;
     padding: 10px 15px;
     background: rgba(0, 0, 0, 0.3);
     border-radius: 8px;
-}
-
-.status-label {
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.6);
-    text-transform: uppercase;
-    margin-bottom: 5px;
 }
 
 .status-value {
