@@ -73,6 +73,16 @@ const TRACKED_PLAYERS = [
     { id: 'Henzzik', name: 'Henzzik', steamId: '76561198849971068' }
 ];
 
+// Roster Configuration (editable from admin interface)
+let rosterConfig = [
+    { id: 'Aindrew', name: 'Aindrew', role: 'Rifler', image: 'aindrew.png', active: true },
+    { id: 'cLn395', name: 'cLn', role: 'AWPer', image: 'cln.png', active: true },
+    { id: 'Bravo1911', name: 'Bravo', role: 'IGL', image: 'bravo.png', active: true },
+    { id: 'Fucs2i', name: 'Fucsii', role: 'Support', image: 'fucsii.png', active: true },
+    { id: 'Henzzik', name: 'Henzzik', role: 'Lurk', image: 'henzzik.png', active: true },
+    { id: 'Standin', name: 'Stand-in', role: 'Player', image: 'standin.png', active: false }
+];
+
 // ========== POSTGRESQL STATS FUNCTIONS ==========
 
 /**
@@ -1593,6 +1603,47 @@ app.delete('/api/manual-veto/:matchId', requireAuth, (req, res) => {
 });
 
 // ========== END MANUAL VETO DATA ENDPOINTS ==========
+
+// ========== ROSTER MANAGEMENT API ==========
+
+// API: Get roster configuration
+app.get('/api/roster/config', (req, res) => {
+    res.json({
+        success: true,
+        roster: rosterConfig
+    });
+});
+
+// API: Update roster configuration
+app.post('/api/roster/config', requireAuth, (req, res) => {
+    const { roster } = req.body;
+    
+    if (!roster || !Array.isArray(roster)) {
+        return res.status(400).json({
+            success: false,
+            error: 'Invalid roster data'
+        });
+    }
+    
+    // Validate roster data
+    for (const player of roster) {
+        if (!player.id || !player.name || !player.role || !player.image || typeof player.active !== 'boolean') {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid player data structure'
+            });
+        }
+    }
+    
+    rosterConfig = roster;
+    
+    res.json({
+        success: true,
+        roster: rosterConfig
+    });
+});
+
+// ========== END ROSTER MANAGEMENT API ==========
 
 // Admin interface (protected)
 app.get('/admin', requireAuth, (req, res) => {

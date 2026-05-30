@@ -170,36 +170,8 @@
             <div class="roster-title">TACAM ROSTER</div>
         </div>
 
-        <div class="players-grid">
-            <div class="player">
-                <img src="/playerpic/aindrew.png" alt="Aindrew" class="player-image">
-                <div class="player-name">Aindrew</div>
-                <div class="player-role">Rifler</div>
-            </div>
-
-            <div class="player">
-                <img src="/playerpic/cln.png" alt="cLn" class="player-image">
-                <div class="player-name">cLn</div>
-                <div class="player-role">AWPer</div>
-            </div>
-
-            <div class="player">
-                <img src="/playerpic/bravo.png" alt="Bravo" class="player-image">
-                <div class="player-name">Bravo</div>
-                <div class="player-role">IGL</div>
-            </div>
-
-            <div class="player">
-                <img src="/playerpic/fucsii.png" alt="Fucsii" class="player-image">
-                <div class="player-name">Fucsii</div>
-                <div class="player-role">Support</div>
-            </div>
-
-            <div class="player">
-                <img src="/playerpic/henzzik.png" alt="Henzzik" class="player-image">
-                <div class="player-name">Henzzik</div>
-                <div class="player-role">Lurk</div>
-            </div>
+        <div class="players-grid" id="playersGrid">
+            <!-- Will be populated dynamically from server -->
         </div>
     </div>
 
@@ -215,6 +187,9 @@
                 
                 console.log('[Roster] Loaded', VIDEO_FILES.length, 'videos');
                 
+                // Load roster configuration
+                await loadRoster();
+                
                 // Initialize after loading config
                 initBackgroundVideo();
             } catch (error) {
@@ -222,6 +197,44 @@
                 VIDEO_FILES = [];
                 initBackgroundVideo();
             }
+        }
+
+        // Load roster from server
+        async function loadRoster() {
+            try {
+                const response = await fetch('/api/roster/config');
+                const data = await response.json();
+                
+                if (data.success && data.roster) {
+                    renderRoster(data.roster);
+                }
+            } catch (error) {
+                console.error('Failed to load roster:', error);
+            }
+        }
+
+        // Render roster dynamically
+        function renderRoster(roster) {
+            const container = document.getElementById('playersGrid');
+            container.innerHTML = '';
+            
+            // Filter only active players
+            const activePlayers = roster.filter(player => player.active);
+            
+            activePlayers.forEach(player => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'player';
+                
+                playerDiv.innerHTML = `
+                    <img src="/playerpic/${player.image}" alt="${player.name}" class="player-image">
+                    <div class="player-name">${player.name}</div>
+                    <div class="player-role">${player.role}</div>
+                `;
+                
+                container.appendChild(playerDiv);
+            });
+            
+            console.log('[Roster] Rendered', activePlayers.length, 'active players');
         }
 
         let currentVideoIndex = 0;

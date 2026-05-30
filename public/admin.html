@@ -288,6 +288,16 @@
             margin: 20px 0;
             text-shadow: 0 0 20px rgba(200, 55, 55, 0.5);
         }
+
+        #rosterEditor input[type="text"],
+        #rosterEditor input[type="checkbox"] {
+            font-family: inherit;
+        }
+
+        #rosterEditor input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent-red);
+        }
     </style>
 </head>
 <body>
@@ -598,6 +608,23 @@
                 </div>
 
                 <div id="hideTimerAfterVetoStatusMessage" class="status-message"></div>
+            </div>
+        </div>
+
+        <!-- Roster Management (Full Width) -->
+        <div class="grid-container">
+            <div class="card grid-full">
+                <h2 class="section-title">👥 Roster Management</h2>
+                <div class="info-box" style="margin-bottom: 20px;">
+                    <p>Manage which players appear on the roster page and their roles.</p>
+                </div>
+                
+                <div id="rosterEditor">
+                    <!-- Will be populated dynamically -->
+                </div>
+                
+                <button onclick="saveRoster()" class="btn">💾 Save Roster</button>
+                <div id="rosterStatusMessage" class="status-message"></div>
             </div>
         </div>
 
@@ -1661,8 +1688,120 @@
 
         // ========== END MANUAL VETO FUNCTIONS ==========
 
+        // ========== ROSTER MANAGEMENT FUNCTIONS ==========
+
+        let currentRoster = [];
+
+        async function loadRoster() {
+            try {
+                const response = await fetch('/api/roster/config');
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentRoster = data.roster;
+                    renderRosterEditor();
+                }
+            } catch (error) {
+                console.error('Failed to load roster:', error);
+                showRosterStatus('Failed to load roster', 'error');
+            }
+        }
+
+        function renderRosterEditor() {
+            const container = document.getElementById('rosterEditor');
+            container.innerHTML = '';
+            
+            const table = document.createElement('div');
+            table.style.cssText = 'display: grid; grid-template-columns: 80px 1fr 1fr 150px 100px; gap: 10px; align-items: center; margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px; font-weight: bold;';
+            table.innerHTML = `
+                <div>Active</div>
+                <div>Player Name</div>
+                <div>Display Name</div>
+                <div>Role</div>
+                <div>Image</div>
+            `;
+            container.appendChild(table);
+            
+            currentRoster.forEach((player, index) => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display: grid; grid-template-columns: 80px 1fr 1fr 150px 100px; gap: 10px; align-items: center; margin-bottom: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 4px;';
+                
+                row.innerHTML = `
+                    <label style="cursor: pointer; display: flex; align-items: center;">
+                        <input type="checkbox" ${player.active ? 'checked' : ''} 
+                               onchange="updatePlayerActive(${index}, this.checked)"
+                               style="width: 20px; height: 20px; cursor: pointer;">
+                    </label>
+                    <div style="opacity: ${player.active ? 1 : 0.5};">${player.id}</div>
+                    <input type="text" value="${player.name}" 
+                           onchange="updatePlayerName(${index}, this.value)"
+                           placeholder="Display Name"
+                           style="padding: 8px; background: rgba(0,0,0,0.3); border: 1px solid #333; border-radius: 4px; color: white;">
+                    <input type="text" value="${player.role}" 
+                           onchange="updatePlayerRole(${index}, this.value)"
+                           placeholder="Role (e.g., IGL, AWPer)"
+                           style="padding: 8px; background: rgba(0,0,0,0.3); border: 1px solid #333; border-radius: 4px; color: white;">
+                    <div style="font-size: 0.9em; opacity: ${player.active ? 1 : 0.5};">${player.image}</div>
+                `;
+                
+                container.appendChild(row);
+            });
+        }
+
+        function updatePlayerActive(index, active) {
+            currentRoster[index].active = active;
+            renderRosterEditor();
+        }
+
+        function updatePlayerName(index, name) {
+            currentRoster[index].name = name;
+        }
+
+        function updatePlayerRole(index, role) {
+            currentRoster[index].role = role;
+        }
+
+        async function saveRoster() {
+            try {
+                const response = await fetch('/api/roster/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ roster: currentRoster })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showRosterStatus('✅ Roster saved successfully!', 'success');
+                } else {
+                    showRosterStatus('❌ Failed to save roster: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Failed to save roster:', error);
+                showRosterStatus('❌ Failed to save roster', 'error');
+            }
+        }
+
+        function showRosterStatus(message, type) {
+            const statusMessage = document.getElementById('rosterStatusMessage');
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message status-${type}`;
+            statusMessage.style.display = 'block';
+
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // ========== END ROSTER MANAGEMENT FUNCTIONS ==========
+
         // Initial preview
         updatePreviewTimer();
+        
+        // Load roster on page load
+        loadRoster();
     </script>
 </body>
 </html>
