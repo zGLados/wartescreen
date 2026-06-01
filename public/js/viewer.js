@@ -576,6 +576,12 @@
             // Sort picked maps by their order in picks array
             const sortedPicks = [];
             
+            // Debug: Check if FACEIT provides explicit order arrays
+            console.log('[Veto Debug] Raw picks array:', picks);
+            console.log('[Veto Debug] Raw bans array:', bans);
+            console.log('[Veto Debug] Has pick_order?', voting.pick_order ? 'Yes' : 'No', voting.pick_order);
+            console.log('[Veto Debug] Has drop_order?', voting.drop_order ? 'Yes' : 'No', voting.drop_order);
+            
             // Check if FACEIT provides explicit pick order
             if (voting.pick_order && Array.isArray(voting.pick_order) && voting.pick_order.length === picks.length) {
                 // Use explicit pick_order if available
@@ -638,19 +644,25 @@
             console.log('[Veto Debug] Picked Maps:', pickedMaps.map(m => m.name));
             console.log('[Veto Debug] Banned Maps:', bannedMaps.map(m => m.name));
             console.log('[Veto Debug] Decider:', deciderMap ? deciderMap.name : 'None');
+            console.log('[Veto Debug] Veto Pattern:', vetoPattern);
             
             // Reconstruct map order based on veto pattern
             const finalMaps = [];
             let banIndex = 0;
             let pickIndex = 0;
             
-            vetoPattern.forEach(action => {
+            vetoPattern.forEach((action, actionIndex) => {
                 if ((action === 'BAN' || action === 'BANNED') && banIndex < bannedMaps.length) {
-                    finalMaps.push(bannedMaps[banIndex++]);
+                    const map = bannedMaps[banIndex++];
+                    finalMaps.push(map);
+                    console.log(`[Veto Debug] Action ${actionIndex + 1}: ${action} -> ${map.name}`);
                 } else if ((action === 'PICK' || action === 'DEFAULT') && pickIndex < pickedMaps.length) {
-                    finalMaps.push(pickedMaps[pickIndex++]);
+                    const map = pickedMaps[pickIndex++];
+                    finalMaps.push(map);
+                    console.log(`[Veto Debug] Action ${actionIndex + 1}: ${action} -> ${map.name}`);
                 } else if (action === 'DECIDER' && deciderMap) {
                     finalMaps.push(deciderMap);
+                    console.log(`[Veto Debug] Action ${actionIndex + 1}: ${action} -> ${deciderMap.name}`);
                 }
             });
             
@@ -964,7 +976,22 @@
             formatDisplay.textContent = `Best of ${data.best_of || '?'}`;
 
             mapGrid.style.display = 'none';
-            actionDisplay.textContent = "Stream Starts In";
+            
+            // Check if veto is in progress
+            const hasVetoData = data.voting && data.voting.map && 
+                               (data.voting.map.pick || data.voting.map.ban);
+            const picksCount = (data.voting?.map?.pick || []).length;
+            const bansCount = (data.voting?.map?.ban || []).length;
+            const totalVetoMaps = picksCount + bansCount;
+            const expectedTotalMaps = data.voting?.map?.entities?.length || 7;
+            const isVetoComplete = totalVetoMaps >= expectedTotalMaps;
+            
+            // Set initial status text based on veto state
+            if (hasVetoData && !isVetoComplete) {
+                actionDisplay.textContent = "Veto in Progress";
+            } else {
+                actionDisplay.textContent = "Stream Starts In";
+            }
 
             // If no timer override is active, use FACEIT time
             // If manual timer is active, don't touch FACEIT timers
@@ -1135,21 +1162,27 @@
                     const playedMap = mapNames[mapId] || mapId;
                     playedMapsHTML = `<div class="outro-map-info">Played on <strong>${playedMap}</strong></div>`;
                 } else if (bestOf === 3 || bestOf === 5) {
-                    // BO3/BO5: Show all picked maps with labels
+                    // BO3/BO5: Show ONLY actually played maps based on score
                     const mapLabels = [];
                     
-                    // Determine expected number of picks (excluding decider)
+                    // Calculate how many maps were actually played based on the score
+                    const totalMapsPlayed = team1Score + team2Score;
+                    
+                    // Determine expected number of regular picks (excluding decider)
                     const expectedPicks = bestOf === 3 ? 2 : 4;
                     
+                    // Show only the maps that were actually played
+                    const mapsToShow = Math.min(totalMapsPlayed, picks.length);
+                    
                     // Regular picks get numbered labels (MAP 1, MAP 2, etc.)
-                    for (let i = 0; i < Math.min(expectedPicks, picks.length); i++) {
+                    for (let i = 0; i < Math.min(expectedPicks, mapsToShow); i++) {
                         const mapId = picks[i];
                         const mapDisplayName = mapNames[mapId] || mapId;
                         mapLabels.push(`<strong>MAP ${i + 1}:</strong> ${mapDisplayName}`);
                     }
                     
-                    // Last pick is the decider (if we have more than expected regular picks)
-                    if (picks.length > expectedPicks) {
+                    // Show decider ONLY if it was actually played (totalMapsPlayed > expectedPicks)
+                    if (mapsToShow > expectedPicks && picks.length > expectedPicks) {
                         const deciderMapId = picks[picks.length - 1];
                         const deciderMapName = mapNames[deciderMapId] || deciderMapId;
                         mapLabels.push(`<strong>DECIDER:</strong> ${deciderMapName}`);
@@ -1158,7 +1191,7 @@
                     if (mapLabels.length > 0) {
                         playedMapsHTML = `
                             <div class="outro-maps-info">
-                                <div class="outro-maps-title">Map Pool</div>
+                                <div class="outro-maps-title">Maps Played</div>
                                 <div class="outro-maps-list">
                                     ${mapLabels.map(label => `<div class="outro-map-item">${label}</div>`).join('')}
                                 </div>
@@ -1365,8 +1398,20 @@
                 default:
                     if (data.scheduled_at && data.scheduled_at > now) {
                         actionDisplay.textContent = "Upcoming match";
-                    } else if (data.voting && data.voting.map && data.voting.map.pick && data.voting.map.pick.length > 0) {
-                        actionDisplay.textContent = "Veto finished!";
+                    } else if (data.voting && data.voting.map) {
+                        // Check if veto is in progress or finished
+                        const picksCount = (data.voting.map.pick || []).length;
+                        const bansCount = (data.voting.map.ban || []).length;
+                        const totalVetoMaps = picksCount + bansCount;
+                        const expectedTotalMaps = data.voting.map.entities?.length || 7;
+                        
+                        if (totalVetoMaps > 0 && totalVetoMaps < expectedTotalMaps) {
+                            actionDisplay.textContent = "Veto in Progress";
+                        } else if (totalVetoMaps >= expectedTotalMaps) {
+                            actionDisplay.textContent = "Veto finished!";
+                        } else {
+                            actionDisplay.textContent = "Stream starts in";
+                        }
                     } else {
                         actionDisplay.textContent = "Stream starts in";
                     }
