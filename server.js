@@ -78,7 +78,7 @@ let rosterConfig = [
     { id: 'Aindrew', name: 'Aindrew', role: 'Rifler', image: 'aindrew.png', active: true },
     { id: 'cLn395', name: 'cLn', role: 'AWPer', image: 'cln.png', active: true },
     { id: 'Bravo1911', name: 'Bravo', role: 'IGL', image: 'bravo.png', active: true },
-    { id: 'Fucs2i', name: 'Fucsii', role: 'Support', image: 'fucsii.png', active: true },
+    { id: 'Fucs2i', name: 'Fucsii', role: 'Rifler', image: 'fucsii.png', active: true },
     { id: 'Henzzik', name: 'Henzzik', role: 'Lurk', image: 'henzzik.png', active: true },
     { id: 'Standin', name: 'Stand-in', role: 'Player', image: 'standin.png', active: false }
 ];
